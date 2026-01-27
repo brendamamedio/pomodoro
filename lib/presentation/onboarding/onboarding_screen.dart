@@ -15,39 +15,31 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   final List<Map<String, String>> _onboardingData = [
     {
-      'title': 'Foque no que\nimporta',
-      'description':
-      'A técnica Pomodoro ajuda você a manter a\nconcentração máxima por 25 minutos,\nseguidos de uma pausa revigorante.',
+      "title": "Foque no que importa",
+      "subtitle": "A técnica Pomodoro ajuda você a manter a concentração máxima por 25 minutos, seguidos de uma pausa revigorante.",
+      "icon": "timer_rounded",
     },
     {
-      'title': 'Organize suas\nTarefas',
-      'description':
-      'Vincule seus ciclos de foco a objetivos\nespecíficos para acompanhar sua\nprodutividade real em cada projeto.',
+      "title": "Organize suas Tarefas",
+      "subtitle": "Vincule seus ciclos de foco a objetivos específicos para acompanhar sua produtividade real em cada projeto.",
+      "icon": "assignment_turned_in_rounded",
     },
     {
-      'title': 'Acompanhe seu\nProgresso',
-      'description':
-      'Veja sua evolução através de\nestatísticas detalhadas e mantenha sua\nsequência de dias produtivos.',
+      "title": "Acompanhe seu Progresso",
+      "subtitle": "Veja sua evolução através de estatísticas detalhadas e mantenha sua sequência de dias produtivos.",
+      "icon": "bar_chart_rounded",
     },
   ];
 
   @override
   Widget build(BuildContext context) {
-    bool isLastPage = _currentPage == _onboardingData.length - 1;
-
     return Scaffold(
       backgroundColor: AppColors.backgroundLight,
-      body: AnimatedContainer(
-        duration: const Duration(milliseconds: 500),
+      body: Container(
         width: double.infinity,
-        decoration: BoxDecoration(
-          gradient: isLastPage
-              ? const LinearGradient(
-            begin: Alignment(-0.45, 0.16),
-            end: Alignment(1.45, 0.84),
-            colors: [Color(0xFFFF7597), Color(0xFF8E54E9)],
-          )
-              : AppColors.bgGradient,
+        height: double.infinity,
+        decoration: const BoxDecoration(
+          gradient: AppColors.bgGradient,
         ),
         child: SafeArea(
           child: Column(
@@ -57,19 +49,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   controller: _pageController,
                   onPageChanged: (value) => setState(() => _currentPage = value),
                   itemCount: _onboardingData.length,
-                  itemBuilder: (context, index) => _buildPageContent(index, isLastPage),
+                  itemBuilder: (context, index) => _buildPage(index),
                 ),
               ),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 40),
-                child: Column(
-                  children: [
-                    _buildPageIndicator(isLastPage),
-                    const SizedBox(height: 24),
-                    _buildNextButton(isLastPage),
-                  ],
-                ),
-              ),
+              _buildBottomControls(),
             ],
           ),
         ),
@@ -77,36 +60,45 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     );
   }
 
-  Widget _buildPageContent(int index, bool isLastPage) {
+  Widget _buildPage(int index) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 32),
+      padding: const EdgeInsets.symmetric(horizontal: 40),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          _buildIllustrationSection(index),
-          const SizedBox(height: 48),
+          Container(
+            width: 260,
+            height: 260,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.5),
+              shape: BoxShape.circle,
+              boxShadow: AppColors.softShadow,
+            ),
+            child: Icon(
+              _getIcon(_onboardingData[index]["icon"]!),
+              size: 100,
+              color: AppColors.primaryPink,
+            ),
+          ),
+          const SizedBox(height: 60),
           Text(
-            _onboardingData[index]['title']!,
+            _onboardingData[index]["title"]!,
             textAlign: TextAlign.center,
-            style: TextStyle(
-              color: isLastPage ? Colors.white : AppColors.textDark,
-              fontSize: 36,
+            style: const TextStyle(
+              fontSize: 28,
+              fontWeight: FontWeight.bold,
+              color: AppColors.textDark,
               fontFamily: 'Poppins',
-              fontWeight: FontWeight.w400,
-              height: 1.1,
-              letterSpacing: -0.9,
             ),
           ),
           const SizedBox(height: 16),
           Text(
-            _onboardingData[index]['description']!,
+            _onboardingData[index]["subtitle"]!,
             textAlign: TextAlign.center,
-            style: TextStyle(
-              color: isLastPage ? Colors.white.withValues(alpha:0.9) : const Color(0xFF64748B),
-              fontSize: 18,
-              fontFamily: 'Poppins',
-              fontWeight: FontWeight.w300,
-              height: 1.6,
+            style: const TextStyle(
+              fontSize: 16,
+              color: AppColors.textGrey,
+              fontFamily: 'Inter',
             ),
           ),
         ],
@@ -114,171 +106,59 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     );
   }
 
-  Widget _buildIllustrationSection(int index) {
-    return SizedBox(
-      height: 256,
-      width: 256,
-      child: Stack(
-        alignment: Alignment.center,
+  Widget _buildBottomControls() {
+    return Padding(
+      padding: const EdgeInsets.all(40),
+      child: Column(
         children: [
-          Opacity(
-            opacity: 0.5,
-            child: Container(
-              width: 256,
-              height: 256,
-              decoration: BoxDecoration(
-                color: index == 2 ? Colors.white.withValues(alpha:0.3) : AppColors.primaryPink.withValues(alpha:0.1),
-                shape: BoxShape.circle,
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: List.generate(
+              _onboardingData.length,
+                  (index) => AnimatedContainer(
+                duration: const Duration(milliseconds: 300),
+                margin: const EdgeInsets.only(right: 8),
+                height: 10,
+                width: _currentPage == index ? 24 : 10,
+                decoration: BoxDecoration(
+                  color: _currentPage == index ? AppColors.primaryPink : const Color(0xFFE2E8F0),
+                  borderRadius: BorderRadius.circular(5),
+                ),
               ),
             ),
           ),
-          if (index == 2) _buildThirdIllustration() else _buildSimpleIllustration(index),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSimpleIllustration(int index) {
-    return Container(
-      width: 192,
-      height: 192,
-      decoration: _illustrationDecoration(),
-      child: Center(
-        child: Icon(
-          index == 0 ? Icons.timer_outlined : Icons.assignment_outlined,
-          size: 80,
-          color: AppColors.primaryPink,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildThirdIllustration() {
-    return Stack(
-      alignment: Alignment.center,
-      children: [
-        Container(
-          width: 208,
-          height: 208,
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha:0.2),
-            shape: BoxShape.circle,
-            border: Border.all(color: Colors.white.withValues(alpha:0.4)),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.white.withValues(alpha:0.4),
-                blurRadius: 80,
-              )
-            ],
-          ),
-          child: const Center(
-            child: Icon(Icons.show_chart_rounded, size: 80, color: Colors.white),
-          ),
-        ),
-        Positioned(
-          right: 0,
-          top: 16,
-          child: _miniBadge(Icons.local_fire_department_rounded),
-        ),
-        Positioned(
-          left: 8,
-          bottom: 24,
-          child: _miniBadge(Icons.star_rounded, size: 40),
-        ),
-      ],
-    );
-  }
-
-  Widget _miniBadge(IconData icon, {double size = 48}) {
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha:0.3),
-        shape: BoxShape.circle,
-        border: Border.all(color: Colors.white.withValues(alpha:0.2)),
-      ),
-      child: Icon(icon, color: Colors.white, size: size * 0.5),
-    );
-  }
-
-  BoxDecoration _illustrationDecoration() {
-    return BoxDecoration(
-      color: Colors.white.withValues(alpha:0.9),
-      shape: BoxShape.circle,
-      border: Border.all(color: Colors.white.withValues(alpha:0.3)),
-      boxShadow: [
-        BoxShadow(
-          color: Colors.black.withValues(alpha:0.05),
-          blurRadius: 30,
-          offset: const Offset(0, 10),
-        )
-      ],
-    );
-  }
-
-  Widget _buildPageIndicator(bool isLastPage) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: List.generate(
-        _onboardingData.length,
-            (index) => Container(
-          margin: const EdgeInsets.symmetric(horizontal: 5),
-          height: 8,
-          width: _currentPage == index ? 28 : 8,
-          decoration: BoxDecoration(
-            color: _currentPage == index
-                ? (isLastPage ? Colors.white : AppColors.primaryPink)
-                : (isLastPage ? Colors.white.withValues(alpha:0.4) : const Color(0xFFE2E8F0)),
-            borderRadius: BorderRadius.circular(9999),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildNextButton(bool isLastPage) {
-    return Container(
-      width: double.infinity,
-      height: 64,
-      decoration: isLastPage ? BoxDecoration(
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF581C87).withValues(alpha:0.4),
-            blurRadius: 50,
-            offset: const Offset(0, 25),
-            spreadRadius: -12,
-          )
-        ],
-      ) : null,
-      child: ElevatedButton(
-        onPressed: () {
-          if (_currentPage < _onboardingData.length - 1) {
-            _pageController.nextPage(duration: const Duration(milliseconds: 300), curve: Curves.easeIn);
-          } else {
-            
-            Navigator.pushReplacementNamed(context, AppRoutes.tasks);
-          }
-        },
-        style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFF0F172A),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-          elevation: 0,
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(
-              isLastPage ? 'Começar Agora' : 'Próximo',
-              style: const TextStyle(color: Colors.white, fontSize: 20, fontFamily: 'Poppins', fontWeight: FontWeight.w600),
+          const SizedBox(height: 48),
+          ElevatedButton(
+            onPressed: () {
+              if (_currentPage == _onboardingData.length - 1) {
+                Navigator.pushReplacementNamed(context, AppRoutes.focus);
+              } else {
+                _pageController.nextPage(
+                  duration: const Duration(milliseconds: 400),
+                  curve: Curves.easeInOut,
+                );
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF0F172A),
+              minimumSize: const Size(double.infinity, 64),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
             ),
-            if (isLastPage) ...[
-              const SizedBox(width: 8),
-              const Icon(Icons.arrow_forward_rounded, color: Colors.white),
-            ]
-          ],
-        ),
+            child: Text(
+              _currentPage == _onboardingData.length - 1 ? "COMEÇAR AGORA" : "PRÓXIMO",
+              style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+            ),
+          ),
+        ],
       ),
     );
+  }
+
+  IconData _getIcon(String name) {
+    switch (name) {
+      case 'bar_chart_rounded': return Icons.bar_chart_rounded;
+      case 'assignment_turned_in_rounded': return Icons.assignment_turned_in_rounded;
+      default: return Icons.timer_rounded;
+    }
   }
 }

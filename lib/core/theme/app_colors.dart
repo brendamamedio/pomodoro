@@ -9,11 +9,15 @@ class AppColors {
   static const Color textDark = Color(0xFF1E293B);
   static const Color textGrey = Color(0xFF64748B);
 
-  static const Gradient bgGradient = RadialGradient(
-    center: Alignment(1.0, -1.0),
-    radius: 1.5,
-    colors: [Color(0xFFE9D5FF), Color(0xFFFDFCFE)],
-    stops: [0.0, 0.6],
+  static const Gradient bgGradient = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [
+      Color(0xFFFCE7F3),
+      Color(0xFFFDFCFE),
+      Color(0xFFF5F3FF),
+    ],
+    stops: [0.0, 0.5, 1.0],
   );
 
   static const Gradient breakBgGradient = RadialGradient(
