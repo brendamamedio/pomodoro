@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../core/theme/app_colors.dart';
 import '../../routes/app_routes.dart';
+import '../../services/auth_service.dart';
 
 class SignUpScreen extends StatefulWidget {
   const SignUpScreen({super.key});
@@ -10,11 +11,13 @@ class SignUpScreen extends StatefulWidget {
 }
 
 class _SignUpScreenState extends State<SignUpScreen> {
+  final AuthService _authService = AuthService();
   final _userController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _isPasswordVisible = false;
   bool _acceptTerms = false;
+  bool _isLoading = false;
 
   @override
   Widget build(BuildContext context) {
@@ -72,14 +75,45 @@ class _SignUpScreenState extends State<SignUpScreen> {
                 _buildTermsCheckbox(),
                 const SizedBox(height: 32),
                 ElevatedButton(
-                  onPressed: _acceptTerms ? () {} : null,
+                  onPressed: (_acceptTerms && !_isLoading) ? () async {
+                    setState(() => _isLoading = true);
+
+                    final user = await _authService.signUp(
+                      _emailController.text.trim(),
+                      _passwordController.text.trim(),
+                    );
+
+                    if (mounted) {
+                      setState(() => _isLoading = false);
+
+                      if (user != null) {
+                        Navigator.pushReplacementNamed(context, AppRoutes.focus);
+                      } else {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Erro ao criar conta. Verifique os dados.'),
+                            backgroundColor: Colors.redAccent,
+                          ),
+                        );
+                      }
+                    }
+                  } : null,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF0F172A),
                     minimumSize: const Size(double.infinity, 64),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
                     elevation: 0,
                   ),
-                  child: const Text(
+                  child: _isLoading
+                      ? const SizedBox(
+                    height: 24,
+                    width: 24,
+                    child: CircularProgressIndicator(
+                      color: Colors.white,
+                      strokeWidth: 2,
+                    ),
+                  )
+                      : const Text(
                     'Criar conta',
                     style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600),
                   ),
@@ -136,7 +170,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
       children: [
         Checkbox(
           value: _acceptTerms,
-          onChanged: (value) => setState(() => _acceptTerms = value!),
+          onChanged: _isLoading ? null : (value) => setState(() => _acceptTerms = value!),
           activeColor: AppColors.primaryPink,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
         ),
