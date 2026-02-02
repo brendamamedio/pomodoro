@@ -41,10 +41,10 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                 ),
                 const SizedBox(height: 40),
-                _buildLabel('Endereço de email'),
+                _buildLabel('E-mail'),
                 _buildTextField(
                   controller: _emailController,
-                  hint: 'helloworld@gmail.com',
+                  hint: 'E-mail',
                   icon: Icons.check_circle,
                 ),
                 const SizedBox(height: 24),

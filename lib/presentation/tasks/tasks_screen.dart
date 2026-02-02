@@ -1,9 +1,26 @@
 import 'package:flutter/material.dart';
 import '../../core/theme/app_colors.dart';
+import '../../routes/app_routes.dart';
+import '../widgets/custom_bottom_nav.dart';
 import 'widgets/task_item_card.dart';
+import 'widgets/empty_tasks_view.dart';
+import '../../services/auth_service.dart';
+import '../../data/models/task_model.dart';
 
-class TasksScreen extends StatelessWidget {
+class TasksScreen extends StatefulWidget {
   const TasksScreen({super.key});
+
+  @override
+  State<TasksScreen> createState() => _TasksScreenState();
+}
+
+class _TasksScreenState extends State<TasksScreen> {
+  final AuthService _authService = AuthService();
+
+
+  void _navigateToAddTask() {
+    Navigator.pushNamed(context, AppRoutes.addTask);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -11,41 +28,56 @@ class TasksScreen extends StatelessWidget {
       backgroundColor: AppColors.backgroundLight,
       body: Container(
         width: double.infinity,
-        decoration: const BoxDecoration(
-          gradient: AppColors.bgGradient,
-        ),
+        decoration: const BoxDecoration(gradient: AppColors.bgGradient),
         child: SafeArea(
-          child: Stack(
+          child: Column(
             children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildHeader(),
-                  Expanded(
-                    child: ListView(
-                      padding: const EdgeInsets.symmetric(horizontal: 24),
-                      children: const [
-                        TaskItemCard(title: 'Estudar UI Design', pomodoros: '3'),
-                        TaskItemCard(title: 'Revisar documentação', pomodoros: '2'),
-                        TaskItemCard(title: 'Exercícios de Logística', pomodoros: '4'),
-                        TaskItemCard(
-                            title: 'Planejamento Semanal',
-                            pomodoros: '1/1',
-                            isCompleted: true
-                        ),
-                        TaskItemCard(title: 'Ler 10 páginas', pomodoros: '2'),
-                        SizedBox(height: 100),
-                      ],
-                    ),
-                  ),
-                ],
+              _buildHeader(),
+              Expanded(
+                child: StreamBuilder<List<TaskModel>>(
+                  stream: _authService.getTasks(),
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const Center(
+                        child: CircularProgressIndicator(color: AppColors.primaryPink),
+                      );
+                    }
+
+                    if (snapshot.hasError) {
+                      return Center(child: Text('Erro ao carregar dados: ${snapshot.error}'));
+                    }
+
+                    final tasks = snapshot.data ?? [];
+
+                    if (tasks.isEmpty) {
+                      return EmptyTasksView(onAddTask: _navigateToAddTask);
+                    }
+
+                    return ListView.builder(
+                      padding: const EdgeInsets.fromLTRB(24, 0, 24, 80),
+                      itemCount: tasks.length,
+                      itemBuilder: (context, index) {
+                        final task = tasks[index];
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: TaskItemCard(
+                            title: task.title,
+                            totalPomodoros: task.totalPomodoros,
+                            completedPomodoros: task.completedPomodoros,
+                            isCompleted: task.isCompleted,
+                          ),
+                        );
+                      },
+                    );
+                  },
+                ),
               ),
-              _buildFloatingActionButton(),
             ],
           ),
         ),
       ),
-      bottomNavigationBar: _buildBottomNav(),
+      bottomNavigationBar: const CustomBottomNav(currentIndex: 1),
+      floatingActionButton: _buildFloatingActionButton(),
     );
   }
 
@@ -54,7 +86,10 @@ class TasksScreen extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(32, 32, 32, 16),
       child: Row(
         children: [
-          _buildCircleBtn(Icons.arrow_back_ios_new),
+          GestureDetector(
+            onTap: () => Navigator.pop(context),
+            child: _buildCircleBtn(Icons.arrow_back_ios_new),
+          ),
           const SizedBox(width: 24),
           const Text(
             'Minhas Tarefas',
@@ -76,78 +111,27 @@ class TasksScreen extends StatelessWidget {
       height: 40,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: Colors.white.withValues(alpha:0.6),
-        border: Border.all(color: Colors.white.withValues(alpha:0.4)),
+        color: Colors.white.withAlpha(153),
+        border: Border.all(color: Colors.white.withAlpha(102)),
       ),
       child: Icon(icon, size: 18, color: AppColors.textDark),
     );
   }
 
   Widget _buildFloatingActionButton() {
-    return Positioned(
-      right: 24,
-      bottom: 24,
+    return FloatingActionButton(
+      onPressed: _navigateToAddTask,
+      elevation: 0,
+      backgroundColor: Colors.transparent,
       child: Container(
         width: 64,
         height: 64,
         decoration: BoxDecoration(
           gradient: AppColors.fabGradient,
           shape: BoxShape.circle,
-          boxShadow: [
-            BoxShadow(
-              color: AppColors.primaryPink.withValues(alpha:0.4),
-              blurRadius: 24,
-              offset: const Offset(0, 8),
-            )
-          ],
         ),
         child: const Icon(Icons.add, color: Colors.white, size: 32),
       ),
-    );
-  }
-
-  Widget _buildBottomNav() {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 20),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        border: Border(top: BorderSide(color: Color(0xFFF1F5F9))),
-      ),
-      child: const Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: [
-          _NavIcon(Icons.timer_rounded, "FOCO", false),
-          _NavIcon(Icons.list_alt_rounded, "TAREFAS", true),
-          _NavIcon(Icons.bar_chart_rounded, "STATUS", false),
-          _NavIcon(Icons.settings_outlined, "AJUSTES", false),
-        ],
-      ),
-    );
-  }
-}
-
-class _NavIcon extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final bool active;
-  const _NavIcon(this.icon, this.label, this.active);
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, color: active ? const Color(0xFFEC6888) : AppColors.textGrey),
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 10,
-            color: active ? const Color(0xFFEC6888) : AppColors.textGrey,
-            fontWeight: FontWeight.w500,
-            fontFamily: 'Poppins',
-          ),
-        ),
-      ],
     );
   }
 }

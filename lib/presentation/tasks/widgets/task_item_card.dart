@@ -3,73 +3,85 @@ import '../../../core/theme/app_colors.dart';
 
 class TaskItemCard extends StatelessWidget {
   final String title;
-  final String pomodoros;
+  final int totalPomodoros;
+  final int completedPomodoros;
   final bool isCompleted;
 
   const TaskItemCard({
     super.key,
     required this.title,
-    required this.pomodoros,
+    required this.totalPomodoros,
+    required this.completedPomodoros,
     this.isCompleted = false,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Opacity(
-      opacity: isCompleted ? 0.5 : 1.0,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 16),
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: AppColors.surfaceWhite.withValues(alpha: 0.6),
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: AppColors.surfaceWhite.withValues(alpha: 0.4)),
-        ),
-        child: Row(
-          children: [
-            _buildCheckBox(),
-            const SizedBox(width: 16),
-            Expanded(child: _buildTitle()),
-            _buildPomodoroBadge(),
-          ],
-        ),
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.8),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.5)),
+        boxShadow: AppColors.softShadow,
+      ),
+      child: Row(
+        children: [
+          _buildCheckbox(),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontFamily: 'Poppins',
+                    fontWeight: FontWeight.w500,
+                    color: isCompleted ? AppColors.textGrey : AppColors.textDark,
+                    decoration: isCompleted ? TextDecoration.lineThrough : null,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    const Text('🍅', style: TextStyle(fontSize: 14)),
+                    const SizedBox(width: 4),
+                    Text(
+                      '$completedPomodoros / $totalPomodoros pomodoros',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: AppColors.textGrey,
+                        fontFamily: 'Poppins',
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const Icon(Icons.chevron_right, color: AppColors.textGrey, size: 20),
+        ],
       ),
     );
   }
 
-  Widget _buildCheckBox() {
+  Widget _buildCheckbox() {
     return Container(
       width: 24,
       height: 24,
       decoration: BoxDecoration(
-        shape: BoxShape.circle,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: isCompleted ? AppColors.primaryPink : const Color(0xFFE2E8F0),
+          width: 2,
+        ),
         color: isCompleted ? AppColors.primaryPink : Colors.transparent,
-        border: Border.all(color: AppColors.primaryPink, width: 2),
       ),
-      child: isCompleted ? const Icon(Icons.check, size: 16, color: Colors.white) : null,
-    );
-  }
-
-  Widget _buildTitle() {
-    return Text(
-      title,
-      style: TextStyle(
-        color: AppColors.textDark,
-        fontSize: 15,
-        fontWeight: FontWeight.w500,
-        decoration: isCompleted ? TextDecoration.lineThrough : null,
-      ),
-    );
-  }
-
-  Widget _buildPomodoroBadge() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: isCompleted ? const Color(0x7FE2E8F0) : AppColors.primaryPink.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(9999),
-      ),
-      child: Text('$pomodoros 🍅', style: const TextStyle(fontSize: 12)),
+      child: isCompleted
+          ? const Icon(Icons.check, size: 16, color: Colors.white)
+          : null,
     );
   }
 }

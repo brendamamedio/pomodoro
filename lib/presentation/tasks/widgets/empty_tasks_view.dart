@@ -8,84 +8,96 @@ class EmptyTasksView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 48),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            _buildIllustration(),
-            const SizedBox(height: 32),
-            const Text(
-              'Sua lista está limpa.',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: AppColors.textDark,
-                fontSize: 30,
-                fontFamily: 'Poppins',
-                fontWeight: FontWeight.w400,
-                height: 1.2,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+
+        return Container(
+          width: constraints.maxWidth,
+          height: constraints.maxHeight,
+          padding: const EdgeInsets.symmetric(horizontal: 48),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+
+              SizedBox(
+                height: constraints.maxHeight * 0.25,
+                child: _buildIllustration(),
               ),
-            ),
-            const SizedBox(height: 12),
-            const Text(
-              'Que tal planejar seu próximo\nfoco?',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: AppColors.textGrey,
-                fontSize: 16,
-                fontFamily: 'Poppins',
-                fontWeight: FontWeight.w400,
-                height: 1.6,
+              const SizedBox(height: 32),
+              const Text(
+                'Sua lista está limpa.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: AppColors.textDark,
+                  fontSize: 26,
+                  fontFamily: 'Poppins',
+                  fontWeight: FontWeight.w400,
+                  height: 1.2,
+                ),
               ),
-            ),
-            const SizedBox(height: 48),
-            _buildAddButton(),
-          ],
-        ),
-      ),
+              const SizedBox(height: 12),
+              const Text(
+                'Que tal planejar seu próximo\nfoco?',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: AppColors.textGrey,
+                  fontSize: 16,
+                  fontFamily: 'Poppins',
+                ),
+              ),
+              const SizedBox(height: 40),
+              _buildAddButton(),
+            ],
+          ),
+        );
+      },
     );
   }
 
   Widget _buildIllustration() {
-    return Stack(
-      alignment: Alignment.center,
-      children: [
-        Container(
-          width: 192,
-          height: 192,
-          decoration: BoxDecoration(
-            color: AppColors.primaryPink.withValues(alpha:0.1),
-            shape: BoxShape.circle,
+    return FittedBox(
+      fit: BoxFit.contain,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          Container(
+            width: 192,
+            height: 192,
+            decoration: BoxDecoration(
+              color: AppColors.primaryPink.withAlpha(25),
+              shape: BoxShape.circle,
+            ),
           ),
-        ),
-        Container(
-          width: 128,
-          height: 160,
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha:0.6),
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: Colors.white.withValues(alpha:0.4)),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha:0.05),
-                blurRadius: 25,
-                offset: const Offset(0, 20),
-              )
-            ],
+          Container(
+            width: 128,
+            height: 160,
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: Colors.white.withAlpha(153),
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(color: Colors.white.withAlpha(102)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withAlpha(12),
+                  blurRadius: 25,
+                  offset: const Offset(0, 20),
+                )
+              ],
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: List.generate(3, (index) => _buildMiniTaskRow(index)),
+            ),
           ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: List.generate(3, (index) => _buildMiniTaskRow(index)),
-          ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
   Widget _buildMiniTaskRow(int index) {
-    double opacity = 0.4 - (index * 0.1);
+
+    int alphaValue = (100 - (index * 25)).clamp(0, 255);
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
       child: Row(
@@ -95,7 +107,10 @@ class EmptyTasksView extends StatelessWidget {
             height: 20,
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(6),
-              border: Border.all(color: AppColors.primaryPink.withValues(alpha:opacity), width: 2),
+              border: Border.all(
+                  color: AppColors.primaryPink.withAlpha(alphaValue),
+                  width: 2
+              ),
             ),
           ),
           const SizedBox(width: 12),
@@ -103,7 +118,7 @@ class EmptyTasksView extends StatelessWidget {
             width: 50,
             height: 8,
             decoration: BoxDecoration(
-              color: AppColors.primaryPink.withValues(alpha:opacity),
+              color: AppColors.primaryPink.withAlpha(alphaValue),
               borderRadius: BorderRadius.circular(9999),
             ),
           ),
@@ -123,7 +138,7 @@ class EmptyTasksView extends StatelessWidget {
           shape: BoxShape.circle,
           boxShadow: [
             BoxShadow(
-              color: AppColors.primaryPink.withValues(alpha:0.3),
+              color: AppColors.primaryPink.withAlpha(76),
               blurRadius: 15,
               offset: const Offset(0, 10),
             )
