@@ -8,6 +8,14 @@ class TimerController extends ValueNotifier<int> {
 
   TimerController() : super(1500);
 
+  void setInitialTime(int seconds) {
+    if (!isRunning && initialSeconds != seconds) {
+      initialSeconds = seconds;
+      value = seconds;
+      notifyListeners();
+    }
+  }
+
   void startTimer() {
     if (isRunning) return;
     isRunning = true;
@@ -39,5 +47,5 @@ class TimerController extends ValueNotifier<int> {
     return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
   }
 
-  double get progress => (initialSeconds - value) / initialSeconds;
+  double get progress => value / initialSeconds;
 }

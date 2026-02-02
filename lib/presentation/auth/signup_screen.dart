@@ -48,19 +48,19 @@ class _SignUpScreenState extends State<SignUpScreen> {
                 _buildLabel('Nome de usuário'),
                 _buildTextField(
                   controller: _userController,
-                  hint: 'Insira seu nome de usuário',
+                  hint: 'Nome de usuário',
                 ),
                 const SizedBox(height: 24),
                 _buildLabel('E-mail'),
                 _buildTextField(
                   controller: _emailController,
-                  hint: 'Insira seu e-mail',
+                  hint: 'E-mail',
                 ),
                 const SizedBox(height: 24),
                 _buildLabel('Senha'),
                 _buildTextField(
                   controller: _passwordController,
-                  hint: 'Insira sua senha',
+                  hint: 'Senha',
                   isPassword: true,
                   obscureText: !_isPasswordVisible,
                   suffixIcon: IconButton(

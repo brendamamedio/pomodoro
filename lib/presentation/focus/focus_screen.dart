@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../core/theme/app_colors.dart';
 import '../widgets/custom_bottom_nav.dart';
 import '../../controllers/timer_controller.dart';
+import '../../services/auth_service.dart';
 import 'widgets/timer_painter.dart';
 import '../tasks/widgets/task_selection_sheet.dart';
 
@@ -14,6 +17,8 @@ class FocusScreen extends StatefulWidget {
 
 class _FocusScreenState extends State<FocusScreen> {
   final TimerController _controller = TimerController();
+  final AuthService _authService = AuthService();
+  final String _userId = FirebaseAuth.instance.currentUser?.uid ?? '';
 
   void _showTaskSelection(BuildContext context) {
     showModalBottomSheet(
@@ -38,23 +43,38 @@ class _FocusScreenState extends State<FocusScreen> {
         width: double.infinity,
         decoration: const BoxDecoration(gradient: AppColors.bgGradient),
         child: SafeArea(
-          child: SingleChildScrollView(
-            physics: const BouncingScrollPhysics(),
-            child: ValueListenableBuilder<int>(
-              valueListenable: _controller,
-              builder: (context, seconds, child) {
-                return Column(
-                  children: [
-                    const SizedBox(height: 40),
-                    _buildTimerSection(),
-                    const SizedBox(height: 48),
-                    _buildTaskSelector(context),
-                    _buildActionButtons(),
-                    const SizedBox(height: 40),
-                  ],
-                );
-              },
-            ),
+          child: StreamBuilder<DocumentSnapshot>(
+            stream: _authService.getUserSettings(_userId),
+            builder: (context, snapshot) {
+              if (snapshot.hasData) {
+                final data = snapshot.data?.data() as Map<String, dynamic>?;
+                final settings = data?['settings'] as Map<String, dynamic>? ?? {};
+                final int focusTime = settings['focusTime'] ?? 25;
+
+                if (!_controller.isRunning) {
+                  _controller.setInitialTime(focusTime * 60);
+                }
+              }
+
+              return SingleChildScrollView(
+                physics: const BouncingScrollPhysics(),
+                child: ValueListenableBuilder<int>(
+                  valueListenable: _controller,
+                  builder: (context, seconds, child) {
+                    return Column(
+                      children: [
+                        const SizedBox(height: 40),
+                        _buildTimerSection(),
+                        const SizedBox(height: 48),
+                        _buildTaskSelector(context),
+                        _buildActionButtons(),
+                        const SizedBox(height: 40),
+                      ],
+                    );
+                  },
+                ),
+              );
+            },
           ),
         ),
       ),
