@@ -33,6 +33,7 @@ class SettingsScreen extends StatelessWidget {
               final int focusTime = settings['focusTime'] ?? 25;
               final int shortBreak = settings['shortBreak'] ?? 5;
               final int longBreak = settings['longBreak'] ?? 15;
+              final int longBreakInterval = settings['longBreakInterval'] ?? 4;
 
               return SingleChildScrollView(
                 padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -43,9 +44,9 @@ class SettingsScreen extends StatelessWidget {
                     const SizedBox(height: 32),
                     _buildSectionTitle('DURAÇÃO DOS CICLOS'),
                     const SizedBox(height: 16),
-                    _buildTimerSettings(authService, userId, focusTime, shortBreak, longBreak),
+                    _buildTimerSettings(authService, userId, focusTime, shortBreak, longBreak, longBreakInterval),
                     const SizedBox(height: 32),
-                    _buildLongBreakFrequency(context),
+                    _buildLongBreakFrequency(context, authService, userId, focusTime, shortBreak, longBreak, longBreakInterval),
                     const SizedBox(height: 32),
                     _buildSectionTitle('NOTIFICAÇÕES'),
                     const SizedBox(height: 16),
@@ -101,7 +102,7 @@ class SettingsScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildTimerSettings(AuthService service, String uid, int focus, int short, int long) {
+  Widget _buildTimerSettings(AuthService service, String uid, int focus, int short, int long, int interval) {
     return Column(
       children: [
         _buildSettingTile(
@@ -109,8 +110,8 @@ class SettingsScreen extends StatelessWidget {
           focus.toString(),
           AppColors.primaryPink,
           Icons.center_focus_strong,
-          onAdd: () => service.updateUserSettings(userId: uid, focusTime: focus + 1, shortBreak: short, longBreak: long),
-          onRemove: () => service.updateUserSettings(userId: uid, focusTime: focus > 1 ? focus - 1 : 1, shortBreak: short, longBreak: long),
+          onAdd: () => service.updateUserSettings(userId: uid, focusTime: focus + 1, shortBreak: short, longBreak: long, longBreakInterval: interval),
+          onRemove: () => service.updateUserSettings(userId: uid, focusTime: focus > 1 ? focus - 1 : 1, shortBreak: short, longBreak: long, longBreakInterval: interval),
         ),
         const SizedBox(height: 12),
         _buildSettingTile(
@@ -118,8 +119,8 @@ class SettingsScreen extends StatelessWidget {
           short.toString(),
           const Color(0xFFB794F4),
           Icons.coffee,
-          onAdd: () => service.updateUserSettings(userId: uid, focusTime: focus, shortBreak: short + 1, longBreak: long),
-          onRemove: () => service.updateUserSettings(userId: uid, focusTime: focus, shortBreak: short > 1 ? short - 1 : 1, longBreak: long),
+          onAdd: () => service.updateUserSettings(userId: uid, focusTime: focus, shortBreak: short + 1, longBreak: long, longBreakInterval: interval),
+          onRemove: () => service.updateUserSettings(userId: uid, focusTime: focus, shortBreak: short > 1 ? short - 1 : 1, longBreak: long, longBreakInterval: interval),
         ),
         const SizedBox(height: 12),
         _buildSettingTile(
@@ -127,14 +128,14 @@ class SettingsScreen extends StatelessWidget {
           long.toString(),
           const Color(0xFF94A3B8),
           Icons.hotel,
-          onAdd: () => service.updateUserSettings(userId: uid, focusTime: focus, shortBreak: short, longBreak: long + 1),
-          onRemove: () => service.updateUserSettings(userId: uid, focusTime: focus, shortBreak: short, longBreak: long > 1 ? long - 1 : 1),
+          onAdd: () => service.updateUserSettings(userId: uid, focusTime: focus, shortBreak: short, longBreak: long + 1, longBreakInterval: interval),
+          onRemove: () => service.updateUserSettings(userId: uid, focusTime: focus, shortBreak: short, longBreak: long > 1 ? long - 1 : 1, longBreakInterval: interval),
         ),
       ],
     );
   }
 
-  Widget _buildLongBreakFrequency(BuildContext context) {
+  Widget _buildLongBreakFrequency(BuildContext context, AuthService service, String uid, int focus, int short, int long, int interval) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -142,9 +143,9 @@ class SettingsScreen extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             _buildSectionTitle('FREQUÊNCIA DE PAUSA LONGA'),
-            const Text(
-              'A cada 4 Pomodoros',
-              style: TextStyle(
+            Text(
+              'A cada $interval Pomodoros',
+              style: const TextStyle(
                   color: AppColors.primaryPink,
                   fontSize: 12,
                   fontFamily: 'Poppins',
@@ -168,10 +169,19 @@ class SettingsScreen extends StatelessWidget {
                   thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 10),
                 ),
                 child: Slider(
-                    value: 4,
+                    value: interval.toDouble(),
                     min: 1,
                     max: 10,
-                    onChanged: (v) {}
+                    divisions: 9,
+                    onChanged: (v) {
+                      service.updateUserSettings(
+                          userId: uid,
+                          focusTime: focus,
+                          shortBreak: short,
+                          longBreak: long,
+                          longBreakInterval: v.toInt()
+                      );
+                    }
                 ),
               ),
               const Row(

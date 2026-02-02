@@ -12,7 +12,7 @@ class TaskSelectionSheet extends StatefulWidget {
 
 class _TaskSelectionSheetState extends State<TaskSelectionSheet> {
   final AuthService _authService = AuthService();
-  String? _selectedTaskId;
+  TaskModel? _selectedTask;
 
   @override
   Widget build(BuildContext context) {
@@ -86,11 +86,15 @@ class _TaskSelectionSheetState extends State<TaskSelectionSheet> {
                   itemCount: tasks.length,
                   itemBuilder: (context, index) {
                     final task = tasks[index];
+                    final isSelected = _selectedTask?.id == task.id;
+
                     return GestureDetector(
-                      onTap: () => setState(() => _selectedTaskId = task.id),
+                      onTap: () => setState(() => _selectedTask = task),
                       child: _buildTaskItem(
                         task.title,
-                        isSelected: _selectedTaskId == task.id,
+                        task.completedPomodoros,
+                        task.totalPomodoros,
+                        isSelected: isSelected,
                       ),
                     );
                   },
@@ -105,7 +109,8 @@ class _TaskSelectionSheetState extends State<TaskSelectionSheet> {
     );
   }
 
-  Widget _buildTaskItem(String title, {bool isSelected = false}) {
+
+  Widget _buildTaskItem(String title, int completed, int total, {bool isSelected = false}) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
@@ -126,15 +131,25 @@ class _TaskSelectionSheetState extends State<TaskSelectionSheet> {
                 const Text('🍅', style: TextStyle(fontSize: 16)),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: Text(
-                    title,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Color(0xFF334155),
-                      fontSize: 16,
-                      fontFamily: 'Poppins',
-                      fontWeight: FontWeight.w500,
-                    ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Color(0xFF334155),
+                          fontSize: 16,
+                          fontFamily: 'Poppins',
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+
+                      Text(
+                        "$completed / $total pomodoros",
+                        style: const TextStyle(color: AppColors.textGrey, fontSize: 11),
+                      ),
+                    ],
                   ),
                 ),
               ],
@@ -152,7 +167,8 @@ class _TaskSelectionSheetState extends State<TaskSelectionSheet> {
       width: double.infinity,
       height: 56,
       child: ElevatedButton(
-        onPressed: _selectedTaskId == null ? null : () => Navigator.pop(context, _selectedTaskId),
+
+        onPressed: _selectedTask == null ? null : () => Navigator.pop(context, _selectedTask),
         style: ElevatedButton.styleFrom(
           backgroundColor: const Color(0xFF0F172A),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),

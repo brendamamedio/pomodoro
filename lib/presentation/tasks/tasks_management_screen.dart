@@ -1,26 +1,19 @@
 import 'package:flutter/material.dart';
 import '../../core/theme/app_colors.dart';
+import '../../routes/app_routes.dart';
 import '../widgets/custom_bottom_nav.dart';
 import 'widgets/task_item_card.dart';
-import 'widgets/task_edit_sheet.dart';
 import 'widgets/empty_tasks_view.dart';
+import '../../services/auth_service.dart';
+import '../../data/models/task_model.dart';
 
 class TasksManagementScreen extends StatelessWidget {
   const TasksManagementScreen({super.key});
 
-  final bool hasTasks = false;
+  AuthService get _authService => AuthService();
 
-  void _openEditSheet(BuildContext context, {String? title, int pomodoros = 1, bool isEditing = false}) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => TaskEditSheet(
-        initialTitle: title,
-        initialPomodoros: pomodoros,
-        isEditing: isEditing,
-      ),
-    );
+  void _navigateToAddTask(BuildContext context) {
+    Navigator.pushNamed(context, AppRoutes.addTask);
   }
 
   @override
@@ -35,45 +28,52 @@ class TasksManagementScreen extends StatelessWidget {
             children: [
               _buildHeader(context),
               Expanded(
-                child: hasTasks
-                    ? _buildTaskList(context)
-                    : EmptyTasksView(onAddTask: () => _openEditSheet(context)),
+                child: StreamBuilder<List<TaskModel>>(
+                  stream: _authService.getTasks(),
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const Center(
+                        child: CircularProgressIndicator(color: AppColors.primaryPink),
+                      );
+                    }
+
+                    if (snapshot.hasError) {
+                      return Center(child: Text('Erro ao carregar: ${snapshot.error}'));
+                    }
+
+                    final tasks = snapshot.data ?? [];
+
+                    if (tasks.isEmpty) {
+                      return EmptyTasksView(onAddTask: () => _navigateToAddTask(context));
+                    }
+
+                    return ListView.builder(
+
+                      padding: const EdgeInsets.fromLTRB(24, 0, 24, 100),
+                      itemCount: tasks.length,
+                      itemBuilder: (context, index) {
+                        final task = tasks[index];
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: TaskItemCard(
+                            title: task.title,
+
+                            totalPomodoros: task.totalPomodoros,
+                            completedPomodoros: task.completedPomodoros,
+                            isCompleted: task.isCompleted,
+                          ),
+                        );
+                      },
+                    );
+                  },
+                ),
               ),
             ],
           ),
         ),
       ),
-      floatingActionButton: hasTasks ? _buildFAB(context) : null,
+      floatingActionButton: _buildFAB(context),
       bottomNavigationBar: const CustomBottomNav(currentIndex: 1),
-    );
-  }
-
-  Widget _buildTaskList(BuildContext context) {
-    return ListView(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
-      children: [
-        _buildTaskItem(context, 'Estudar UI Design', 3),
-        _buildTaskItem(context, 'Revisar documentação', 2),
-        _buildTaskItem(context, 'Exercícios de Logística', 4),
-        const TaskItemCard(
-            title: 'Planejamento Semanal',
-            pomodoros: '1/1',
-            isCompleted: true
-        ),
-        _buildTaskItem(context, 'Ler 10 páginas', 2),
-      ],
-    );
-  }
-
-  Widget _buildTaskItem(BuildContext context, String title, int pomodoros) {
-    return InkWell(
-      onTap: () => _openEditSheet(
-          context,
-          title: title,
-          pomodoros: pomodoros,
-          isEditing: true
-      ),
-      child: TaskItemCard(title: title, pomodoros: pomodoros.toString()),
     );
   }
 
@@ -104,6 +104,7 @@ class TasksManagementScreen extends StatelessWidget {
       height: 40,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
+
         color: Colors.white.withValues(alpha: 0.6),
         border: Border.all(color: Colors.white.withValues(alpha: 0.4)),
       ),
@@ -113,7 +114,7 @@ class TasksManagementScreen extends StatelessWidget {
 
   Widget _buildFAB(BuildContext context) {
     return FloatingActionButton(
-      onPressed: () => _openEditSheet(context),
+      onPressed: () => _navigateToAddTask(context),
       backgroundColor: Colors.transparent,
       elevation: 0,
       child: Container(

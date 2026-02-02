@@ -8,6 +8,8 @@ class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
+  bool _isProcessingSession = false;
+
   Future<User?> signUp(String email, String password) async {
     try {
       UserCredential result = await _auth.createUserWithEmailAndPassword(
@@ -21,9 +23,9 @@ class AuthService {
           focusTime: 25,
           shortBreak: 5,
           longBreak: 15,
+          longBreakInterval: 4,
         );
       }
-
       return result.user;
     } catch (e) {
       debugPrint("Erro no Sign Up: ${e.toString()}");
@@ -53,6 +55,7 @@ class AuthService {
     required int focusTime,
     required int shortBreak,
     required int longBreak,
+    required int longBreakInterval,
   }) async {
     try {
       await _firestore.collection('users').doc(userId).set({
@@ -60,7 +63,8 @@ class AuthService {
           'focusTime': focusTime,
           'shortBreak': shortBreak,
           'longBreak': longBreak,
-        }
+          'longBreakInterval': longBreakInterval,
+        },
       }, SetOptions(merge: true));
     } catch (e) {
       debugPrint("Erro ao salvar configurações: $e");
@@ -71,29 +75,21 @@ class AuthService {
     return _firestore.collection('users').doc(userId).snapshots();
   }
 
-  Future<void> addTask(String title) async {
-    debugPrint("DEBUG: Tentando salvar tarefa: $title");
+  Future<void> addTask(String title, int pomodoros) async {
     try {
       final user = _auth.currentUser;
-      if (user == null) {
-        debugPrint("DEBUG ERRO: Usuário nulo!");
-        return;
-      }
+      if (user == null) return;
 
-      // Adicionado timeout para evitar que o app fique esperando em caso de erro de rede
       await _firestore.collection('tasks').add({
         'title': title,
+        'totalPomodoros': pomodoros,
+        'completedPomodoros': 0,
         'isCompleted': false,
         'userId': user.uid,
         'createdAt': FieldValue.serverTimestamp(),
-      }).timeout(const Duration(seconds: 10), onTimeout: () {
-        debugPrint("DEBUG ERRO: O Firestore demorou demais para responder (Timeout)");
-        throw TimeoutException("Conexão com o banco de dados expirou.");
-      }).then((value) {
-        debugPrint("DEBUG SUCESSO: Tarefa salva com ID: ${value.id}");
       });
     } catch (e) {
-      debugPrint("DEBUG ERRO CRÍTICO: $e");
+      debugPrint("Erro ao adicionar tarefa: $e");
       rethrow;
     }
   }
@@ -105,9 +101,60 @@ class AuthService {
     return _firestore
         .collection('tasks')
         .where('userId', isEqualTo: user.uid)
+        .orderBy('createdAt', descending: true)
         .snapshots()
-        .map((snapshot) => snapshot.docs
-        .map((doc) => TaskModel.fromFirestore(doc.id, doc.data()))
-        .toList());
+        .map(
+          (snapshot) => snapshot.docs
+          .map((doc) => TaskModel.fromFirestore(doc.id, doc.data()))
+          .toList(),
+    );
+  }
+
+  Future<void> deleteTask(String taskId) async {
+    try {
+      await _firestore.collection('tasks').doc(taskId).delete();
+    } catch (e) {
+      debugPrint("Erro ao excluir: $e");
+      rethrow;
+    }
+  }
+
+  Future<void> completePomodoroSession({
+    required String taskId,
+    required String taskTitle,
+    required int durationMinutes,
+    required String type,
+  }) async {
+    if (_isProcessingSession) return;
+    _isProcessingSession = true;
+
+    try {
+      final user = _auth.currentUser;
+      if (user == null) return;
+
+      WriteBatch batch = _firestore.batch();
+
+      DocumentReference historyRef = _firestore.collection('history').doc();
+      batch.set(historyRef, {
+        'userId': user.uid,
+        'taskId': taskId,
+        'taskTitle': taskTitle,
+        'durationMinutes': durationMinutes,
+        'type': type,
+        'completedAt': FieldValue.serverTimestamp(),
+      });
+
+      if (type == 'focus') {
+        DocumentReference taskRef = _firestore.collection('tasks').doc(taskId);
+        batch.update(taskRef, {'completedPomodoros': FieldValue.increment(1)});
+      }
+
+      await batch.commit();
+      await Future.delayed(const Duration(seconds: 2));
+    } catch (e) {
+      debugPrint("Erro ao completar sessão: $e");
+    } finally {
+      _isProcessingSession = false;
+    }
   }
 }
