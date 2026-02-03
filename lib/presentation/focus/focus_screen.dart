@@ -3,9 +3,9 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../core/theme/app_colors.dart';
 import '../widgets/custom_bottom_nav.dart';
-import '../../controllers/timer_controller.dart';
-import '../../services/auth_service.dart';
-import '../../data/models/task_model.dart';
+import '../../../controllers/timer_controller.dart';
+import '../../../services/auth_service.dart';
+import '../../../data/models/task_model.dart';
 import 'widgets/timer_painter.dart';
 import '../tasks/widgets/task_selection_sheet.dart';
 
@@ -21,6 +21,7 @@ class _FocusScreenState extends State<FocusScreen> {
   final AuthService _authService = AuthService();
   final String _userId = FirebaseAuth.instance.currentUser?.uid ?? '';
   TaskModel? _selectedTask;
+  bool _settingsInitialized = false;
 
   @override
   void initState() {
@@ -29,24 +30,30 @@ class _FocusScreenState extends State<FocusScreen> {
   }
 
   void _handleTimerEvents() {
-    if (_controller.value == 0 && _selectedTask != null) {
-      String currentType = _controller.currentMode == TimerMode.focus
-          ? 'focus'
-          : (_controller.currentMode == TimerMode.shortBreak ? 'shortBreak' : 'longBreak');
+    if (_controller.value == 0 && !_controller.isRunning && _selectedTask != null) {
+      _processSessionCompletion();
+    }
+  }
 
-      int duration = _controller.currentMode == TimerMode.focus
-          ? _controller.focusSeconds ~/ 60
-          : (_controller.currentMode == TimerMode.shortBreak
-          ? _controller.shortBreakSeconds ~/ 60
-          : _controller.longBreakSeconds ~/ 60);
+  Future<void> _processSessionCompletion() async {
+    String currentType = _controller.currentMode == TimerMode.focus
+        ? 'focus'
+        : (_controller.currentMode == TimerMode.shortBreak ? 'shortBreak' : 'longBreak');
 
-      _authService.completePomodoroSession(
-        taskId: _selectedTask!.id,
-        taskTitle: _selectedTask!.title,
-        durationMinutes: duration,
-        type: currentType,
-      );
+    int duration = _controller.currentMode == TimerMode.focus
+        ? _controller.focusSeconds ~/ 60
+        : (_controller.currentMode == TimerMode.shortBreak
+        ? _controller.shortBreakSeconds ~/ 60
+        : _controller.longBreakSeconds ~/ 60);
 
+    await _authService.completePomodoroSession(
+      taskId: _selectedTask!.id,
+      taskTitle: _selectedTask!.title,
+      durationMinutes: duration,
+      type: currentType,
+    );
+
+    if (mounted) {
       _showFinishDialog(currentType);
     }
   }
@@ -83,6 +90,8 @@ class _FocusScreenState extends State<FocusScreen> {
     if (result != null) {
       setState(() {
         _selectedTask = result;
+
+        _settingsInitialized = false;
       });
     }
   }
@@ -90,7 +99,7 @@ class _FocusScreenState extends State<FocusScreen> {
   @override
   void dispose() {
     _controller.removeListener(_handleTimerEvents);
-    _controller.dispose();
+    _controller.stopTimer();
     super.dispose();
   }
 
@@ -105,16 +114,14 @@ class _FocusScreenState extends State<FocusScreen> {
           child: StreamBuilder<DocumentSnapshot>(
             stream: _authService.getUserSettings(_userId),
             builder: (context, snapshot) {
-              if (snapshot.hasData) {
+              if (snapshot.hasData && snapshot.data!.exists) {
                 final data = snapshot.data?.data() as Map<String, dynamic>?;
                 final settings = data?['settings'] as Map<String, dynamic>? ?? {};
 
-                _controller.updateSettings(
-                  focusMin: settings['focusTime'] ?? 25,
-                  shortMin: settings['shortBreak'] ?? 5,
-                  longMin: settings['longBreak'] ?? 15,
-                  interval: settings['longBreakInterval'] ?? 4,
-                );
+                if (!_settingsInitialized || !_controller.isRunning) {
+                  _controller.loadSettings(settings, task: _selectedTask);
+                  _settingsInitialized = true;
+                }
               }
 
               return SingleChildScrollView(
@@ -157,14 +164,14 @@ class _FocusScreenState extends State<FocusScreen> {
               height: 321,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                border: Border.all(color: themeColor.withValues(alpha: 0.1)),
+                border: Border.all(color: themeColor.withOpacity(0.1)),
               ),
             ),
             Container(
               width: 288,
               height: 288,
               decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.4),
+                color: Colors.white.withOpacity(0.4),
                 shape: BoxShape.circle,
                 border: Border.all(color: Colors.white, width: 4),
                 boxShadow: AppColors.softShadow,
@@ -230,7 +237,7 @@ class _FocusScreenState extends State<FocusScreen> {
       children: List.generate(
         _controller.longBreakInterval,
             (index) {
-          bool isCompleted = index < _controller.completedPomodoros % _controller.longBreakInterval;
+          bool isCompleted = index < (_controller.completedPomodoros % _controller.longBreakInterval);
           return Container(
             margin: const EdgeInsets.symmetric(horizontal: 4),
             width: 10,
@@ -253,7 +260,7 @@ class _FocusScreenState extends State<FocusScreen> {
         margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.4),
+          color: Colors.white.withOpacity(0.4),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: const Color(0xFFE2E8F0)),
         ),
@@ -320,7 +327,7 @@ class _FocusScreenState extends State<FocusScreen> {
                       ? () {
                     if (_controller.isRunning || _controller.value > 0) {
                       _controller.stopTimer();
-                      _handleTimerEvents();
+                      _processSessionCompletion();
                     }
                   }
                       : null,
@@ -351,9 +358,9 @@ class _FocusScreenState extends State<FocusScreen> {
       child: Container(
         height: 56,
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.4),
+          color: Colors.white.withOpacity(0.4),
           borderRadius: BorderRadius.circular(22),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+          border: Border.all(color: Colors.white.withOpacity(0.2)),
         ),
         child: Center(
           child: Text(

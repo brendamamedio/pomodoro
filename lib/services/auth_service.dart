@@ -2,6 +2,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import '../data/models/task_model.dart';
+import '../data/models/history_model.dart';
 import 'dart:async';
 
 class AuthService {
@@ -47,7 +48,11 @@ class AuthService {
   }
 
   Future<void> signOut() async {
-    await _auth.signOut();
+    try {
+      await _auth.signOut();
+    } catch (e) {
+      debugPrint("Erro no Sign Out: ${e.toString()}");
+    }
   }
 
   Future<void> updateUserSettings({
@@ -58,12 +63,14 @@ class AuthService {
     required int longBreakInterval,
   }) async {
     try {
+      final int safeInterval = longBreakInterval < 2 ? 2 : longBreakInterval;
+
       await _firestore.collection('users').doc(userId).set({
         'settings': {
           'focusTime': focusTime,
           'shortBreak': shortBreak,
           'longBreak': longBreak,
-          'longBreakInterval': longBreakInterval,
+          'longBreakInterval': safeInterval,
         },
       }, SetOptions(merge: true));
     } catch (e) {
@@ -103,11 +110,9 @@ class AuthService {
         .where('userId', isEqualTo: user.uid)
         .orderBy('createdAt', descending: true)
         .snapshots()
-        .map(
-          (snapshot) => snapshot.docs
-          .map((doc) => TaskModel.fromFirestore(doc.id, doc.data()))
-          .toList(),
-    );
+        .map((snapshot) => snapshot.docs
+        .map((doc) => TaskModel.fromFirestore(doc.id, doc.data()))
+        .toList());
   }
 
   Future<void> deleteTask(String taskId) async {
@@ -117,6 +122,20 @@ class AuthService {
       debugPrint("Erro ao excluir: $e");
       rethrow;
     }
+  }
+
+  Stream<List<HistoryModel>> getUserHistory() {
+    final user = _auth.currentUser;
+    if (user == null) return const Stream.empty();
+
+    return _firestore
+        .collection('history')
+        .where('userId', isEqualTo: user.uid)
+        .orderBy('completedAt', descending: true)
+        .snapshots()
+        .map((snapshot) => snapshot.docs
+        .map((doc) => HistoryModel.fromFirestore(doc.id, doc.data()))
+        .toList());
   }
 
   Future<void> completePomodoroSession({
@@ -146,11 +165,25 @@ class AuthService {
 
       if (type == 'focus') {
         DocumentReference taskRef = _firestore.collection('tasks').doc(taskId);
-        batch.update(taskRef, {'completedPomodoros': FieldValue.increment(1)});
+        DocumentSnapshot taskDoc = await taskRef.get();
+
+        if (taskDoc.exists) {
+          final data = taskDoc.data() as Map<String, dynamic>;
+          int current = data['completedPomodoros'] ?? 0;
+          int total = data['totalPomodoros'] ?? 1;
+
+          int nextValue = current + 1;
+          bool isFinished = nextValue >= total;
+
+          batch.update(taskRef, {
+            'completedPomodoros': nextValue,
+            'isCompleted': isFinished,
+          });
+        }
       }
 
       await batch.commit();
-      await Future.delayed(const Duration(seconds: 2));
+      await Future.delayed(const Duration(milliseconds: 500));
     } catch (e) {
       debugPrint("Erro ao completar sessão: $e");
     } finally {
