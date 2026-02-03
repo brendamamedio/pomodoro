@@ -7,6 +7,7 @@ import '../presentation/stats/stats_screen.dart';
 import '../presentation/settings/settings_screen.dart';
 import '../presentation/auth/login_screen.dart';
 import '../presentation/auth/signup_screen.dart';
+import '../presentation/tasks/add_task_screen.dart';
 
 class AppRoutes {
   static const String onboarding = '/onboarding';
@@ -17,6 +18,7 @@ class AppRoutes {
   static const String login = '/login';
   static const String welcome = '/welcome';
   static const String signup = '/signup';
+  static const String addTask = '/add-task';
 
   static Map<String, WidgetBuilder> getRoutes() {
     return {
@@ -28,6 +30,7 @@ class AppRoutes {
       focus: (context) => const FocusScreen(),
       statistics: (context) => const StatsScreen(),
       settings: (context) => const SettingsScreen(),
+      addTask: (context) => const AddTaskScreen(),
     };
   }
 }
