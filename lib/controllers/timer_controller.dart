@@ -4,76 +4,82 @@ import '../data/models/task_model.dart';
 
 enum TimerMode { focus, shortBreak, longBreak }
 
-class TimerController extends ValueNotifier<int> {
+class TimerController extends ChangeNotifier {
   static final TimerController _instance = TimerController._internal();
   factory TimerController() => _instance;
-  TimerController._internal() : super(1500);
+  TimerController._internal();
 
   Timer? _timer;
-  bool isRunning = false;
-
-  int focusSeconds = 1500;
-  int shortBreakSeconds = 300;
-  int longBreakSeconds = 900;
-  int longBreakInterval = 4;
-  int completedPomodoros = 0;
-
   TimerMode currentMode = TimerMode.focus;
-  TaskModel? selectedTask;
 
-  void loadSettings(Map<String, dynamic> globalSettings, {TaskModel? task}) {
-    if (task != null) selectedTask = task;
+  int _value = 1500;
+  int _focusSeconds = 1500;
+  int _shortBreakSeconds = 300;
+  int _longBreakSeconds = 900;
+  int _longBreakInterval = 4;
+  int _completedPomodoros = 0;
 
-    focusSeconds = (globalSettings['focusTime'] ?? 25) * 60;
-    shortBreakSeconds = (globalSettings['shortBreak'] ?? 5) * 60;
-    longBreakSeconds = (globalSettings['longBreak'] ?? 15) * 60;
-    longBreakInterval = globalSettings['longBreakInterval'] ?? 4;
+  bool _isRunning = false;
+  TaskModel? _selectedTask;
 
-    if (value == 0 && !isRunning) {
-      resetToMode(currentMode);
-    }
-  }
+  int get value => _value;
+  int get focusSeconds => _focusSeconds;
+  int get shortBreakSeconds => _shortBreakSeconds;
+  int get longBreakSeconds => _longBreakSeconds;
+  int get longBreakInterval => _longBreakInterval;
+  int get completedPomodoros => _completedPomodoros;
+  bool get isRunning => _isRunning;
+  TaskModel? get selectedTask => _selectedTask;
 
-  void _handleTimerFinish() {
-    stopTimer();
-
-    if (currentMode == TimerMode.focus) {
-      completedPomodoros++;
-
-      if (completedPomodoros % longBreakInterval == 0) {
-        currentMode = TimerMode.longBreak;
-        value = longBreakSeconds;
-      } else {
-        currentMode = TimerMode.shortBreak;
-        value = shortBreakSeconds;
-      }
-    } else {
-      currentMode = TimerMode.focus;
-      value = focusSeconds;
-    }
+  set completedPomodoros(int val) {
+    _completedPomodoros = val;
     notifyListeners();
   }
 
-  void resetToMode(TimerMode mode) {
-    currentMode = mode;
-    if (mode == TimerMode.focus) {
-      value = focusSeconds;
-    } else if (mode == TimerMode.shortBreak) {
-      value = shortBreakSeconds;
-    } else {
-      value = longBreakSeconds;
+  set selectedTask(TaskModel? task) {
+    _selectedTask = task;
+    notifyListeners();
+  }
+
+  double get progress {
+    int total = currentMode == TimerMode.focus
+        ? _focusSeconds
+        : (currentMode == TimerMode.shortBreak ? _shortBreakSeconds : _longBreakSeconds);
+    return 1.0 - (_value / total);
+  }
+
+  String get timerString {
+    int minutes = _value ~/ 60;
+    int seconds = _value % 60;
+    return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
+  }
+
+  void updateSettings({
+    required int focusMin,
+    required int shortMin,
+    required int longMin,
+    required int interval,
+  }) {
+    _focusSeconds = focusMin * 60;
+    _shortBreakSeconds = shortMin * 60;
+    _longBreakSeconds = longMin * 60;
+    _longBreakInterval = interval;
+
+    if (!_isRunning) {
+      _resetToMode(currentMode);
     }
     notifyListeners();
   }
 
   void startTimer() {
-    if (isRunning) return;
-    isRunning = true;
+    if (_isRunning) return;
+    _isRunning = true;
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (value > 0) {
-        value--;
+      if (_value > 0) {
+        _value--;
+        notifyListeners();
       } else {
-        _handleTimerFinish();
+        _handleTimerFinished();
       }
     });
     notifyListeners();
@@ -81,22 +87,54 @@ class TimerController extends ValueNotifier<int> {
 
   void stopTimer() {
     _timer?.cancel();
-    isRunning = false;
+    _isRunning = false;
     notifyListeners();
   }
 
-  void resetTimer() => resetToMode(currentMode);
-
-  String get timerString {
-    int minutes = value ~/ 60;
-    int seconds = value % 60;
-    return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
+  void resetTimer() {
+    stopTimer();
+    _resetToMode(currentMode);
+    notifyListeners();
   }
 
-  double get progress {
-    int total = (currentMode == TimerMode.focus)
-        ? focusSeconds
-        : (currentMode == TimerMode.shortBreak ? shortBreakSeconds : longBreakSeconds);
-    return value / (total > 0 ? total : 1);
+  void _resetToMode(TimerMode mode) {
+    currentMode = mode;
+    switch (mode) {
+      case TimerMode.focus:
+        _value = _focusSeconds;
+        break;
+      case TimerMode.shortBreak:
+        _value = _shortBreakSeconds;
+        break;
+      case TimerMode.longBreak:
+        _value = _longBreakSeconds;
+        break;
+    }
+  }
+
+  void _handleTimerFinished() {
+    stopTimer();
+    if (currentMode == TimerMode.focus) {
+      _completedPomodoros++;
+      if (_completedPomodoros % _longBreakInterval == 0) {
+        _resetToMode(TimerMode.longBreak);
+      } else {
+        _resetToMode(TimerMode.shortBreak);
+      }
+    } else {
+      _resetToMode(TimerMode.focus);
+    }
+    notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  void clearSelectedTask() {
+    _selectedTask = null;
+    notifyListeners();
   }
 }

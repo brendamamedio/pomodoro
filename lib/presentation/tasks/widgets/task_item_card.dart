@@ -6,6 +6,7 @@ class TaskItemCard extends StatelessWidget {
   final int totalPomodoros;
   final int completedPomodoros;
   final bool isCompleted;
+  final VoidCallback? onToggle;
 
   const TaskItemCard({
     super.key,
@@ -13,6 +14,7 @@ class TaskItemCard extends StatelessWidget {
     required this.totalPomodoros,
     required this.completedPomodoros,
     this.isCompleted = false,
+    this.onToggle,
   });
 
   @override
@@ -27,7 +29,10 @@ class TaskItemCard extends StatelessWidget {
       ),
       child: Row(
         children: [
-          _buildCheckbox(),
+          GestureDetector(
+            onTap: onToggle,
+            child: _buildCheckbox(),
+          ),
           const SizedBox(width: 16),
           Expanded(
             child: Column(
