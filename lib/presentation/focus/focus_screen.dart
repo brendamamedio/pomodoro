@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../core/theme/app_colors.dart';
 import '../widgets/custom_bottom_nav.dart';
 import '../../controllers/timer_controller.dart';
@@ -20,52 +19,68 @@ class _FocusScreenState extends State<FocusScreen> {
   final TimerController _controller = TimerController();
   final AuthService _authService = AuthService();
   final String _userId = FirebaseAuth.instance.currentUser?.uid ?? '';
-  TaskModel? _selectedTask;
+  bool _isSettingsLoaded = false;
 
   @override
   void initState() {
     super.initState();
-    _controller.addListener(_handleTimerEvents);
+    _loadInitialData();
   }
 
-  void _handleTimerEvents() {
-    if (_controller.value == 0 && _selectedTask != null) {
-      String currentType = _controller.currentMode == TimerMode.focus
-          ? 'focus'
-          : (_controller.currentMode == TimerMode.shortBreak ? 'shortBreak' : 'longBreak');
+  Future<void> _loadInitialData() async {
+    if (_userId.isEmpty) return;
 
-      int duration = _controller.currentMode == TimerMode.focus
-          ? _controller.focusSeconds ~/ 60
-          : (_controller.currentMode == TimerMode.shortBreak
-          ? _controller.shortBreakSeconds ~/ 60
-          : _controller.longBreakSeconds ~/ 60);
-
-      _authService.completePomodoroSession(
-        taskId: _selectedTask!.id,
-        taskTitle: _selectedTask!.title,
-        durationMinutes: duration,
-        type: currentType,
-      );
-
-      _showFinishDialog(currentType);
+    if (_controller.completedPomodoros == 0) {
+      final count = await _authService.getTodayFocusCount();
+      _controller.completedPomodoros = count;
     }
+
+    _authService.getUserSettings(_userId).listen((snapshot) {
+      if (snapshot.exists) {
+        final data = snapshot.data() as Map<String, dynamic>?;
+        final settings = data?['settings'] as Map<String, dynamic>? ?? {};
+
+        _controller.updateSettings(
+          focusMin: settings['focusTime'] ?? 25,
+          shortMin: settings['shortBreak'] ?? 5,
+          longMin: settings['longBreak'] ?? 15,
+          interval: settings['longBreakInterval'] ?? 4,
+        );
+
+        if (mounted && !_isSettingsLoaded) {
+          setState(() => _isSettingsLoaded = true);
+        }
+      }
+    });
   }
 
-  void _showFinishDialog(String type) {
-    String message = type == 'focus'
-        ? "Foco concluído! Hora de descansar."
-        : "Descanso finalizado! Pronto para focar?";
-
+  void _showFinishConfirmation() {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text("Ciclo Finalizado"),
-        content: Text(message),
+        title: const Text("Finalizar Sessão?"),
+        content: const Text("Deseja encerrar este ciclo agora? O progresso será registrado no seu histórico e a tarefa será marcada como concluída."),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text("OK"),
+            child: const Text("CANCELAR", style: TextStyle(color: AppColors.textGrey)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF0F172A),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+            onPressed: () async {
+              Navigator.pop(context);
+              await _controller.finishSession(_authService);
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Sessão finalizada com sucesso!')),
+                );
+              }
+            },
+            child: const Text("FINALIZAR", style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -81,17 +96,8 @@ class _FocusScreenState extends State<FocusScreen> {
     );
 
     if (result != null) {
-      setState(() {
-        _selectedTask = result;
-      });
+      _controller.selectedTask = result;
     }
-  }
-
-  @override
-  void dispose() {
-    _controller.removeListener(_handleTimerEvents);
-    _controller.dispose();
-    super.dispose();
   }
 
   @override
@@ -102,37 +108,22 @@ class _FocusScreenState extends State<FocusScreen> {
         width: double.infinity,
         decoration: const BoxDecoration(gradient: AppColors.bgGradient),
         child: SafeArea(
-          child: StreamBuilder<DocumentSnapshot>(
-            stream: _authService.getUserSettings(_userId),
-            builder: (context, snapshot) {
-              if (snapshot.hasData) {
-                final data = snapshot.data?.data() as Map<String, dynamic>?;
-                final settings = data?['settings'] as Map<String, dynamic>? ?? {};
-
-                _controller.updateSettings(
-                  focusMin: settings['focusTime'] ?? 25,
-                  shortMin: settings['shortBreak'] ?? 5,
-                  longMin: settings['longBreak'] ?? 15,
-                  interval: settings['longBreakInterval'] ?? 4,
-                );
-              }
-
+          child: !_isSettingsLoaded
+              ? const Center(child: CircularProgressIndicator(color: AppColors.primaryPink))
+              : ListenableBuilder(
+            listenable: _controller,
+            builder: (context, child) {
               return SingleChildScrollView(
                 physics: const BouncingScrollPhysics(),
-                child: ValueListenableBuilder<int>(
-                  valueListenable: _controller,
-                  builder: (context, seconds, child) {
-                    return Column(
-                      children: [
-                        const SizedBox(height: 40),
-                        _buildTimerSection(),
-                        const SizedBox(height: 48),
-                        _buildTaskSelector(context),
-                        _buildActionButtons(),
-                        const SizedBox(height: 40),
-                      ],
-                    );
-                  },
+                child: Column(
+                  children: [
+                    const SizedBox(height: 40),
+                    _buildTimerSection(),
+                    const SizedBox(height: 48),
+                    _buildTaskSelector(context),
+                    _buildActionButtons(),
+                    const SizedBox(height: 40),
+                  ],
                 ),
               );
             },
@@ -175,11 +166,7 @@ class _FocusScreenState extends State<FocusScreen> {
                   SizedBox(
                     width: 280,
                     height: 280,
-                    child: CustomPaint(
-                      painter: TimerPainter(
-                        progress: _controller.progress,
-                      ),
-                    ),
+                    child: CustomPaint(painter: TimerPainter(progress: _controller.progress)),
                   ),
                   Column(
                     mainAxisSize: MainAxisSize.min,
@@ -212,36 +199,9 @@ class _FocusScreenState extends State<FocusScreen> {
         const SizedBox(height: 48),
         Text(
           isFocus ? "Hora de Focar" : "Hora de Relaxar",
-          style: const TextStyle(
-            fontSize: 30,
-            color: AppColors.textDark,
-            fontFamily: 'Poppins',
-          ),
+          style: const TextStyle(fontSize: 30, color: AppColors.textDark, fontFamily: 'Poppins'),
         ),
-        const SizedBox(height: 12),
-        _buildDotIndicator(),
       ],
-    );
-  }
-
-  Widget _buildDotIndicator() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: List.generate(
-        _controller.longBreakInterval,
-            (index) {
-          bool isCompleted = index < _controller.completedPomodoros % _controller.longBreakInterval;
-          return Container(
-            margin: const EdgeInsets.symmetric(horizontal: 4),
-            width: 10,
-            height: 10,
-            decoration: BoxDecoration(
-              color: isCompleted ? AppColors.primaryPink : const Color(0xFFE2E8F0),
-              shape: BoxShape.circle,
-            ),
-          );
-        },
-      ),
     );
   }
 
@@ -263,7 +223,7 @@ class _FocusScreenState extends State<FocusScreen> {
             const SizedBox(width: 12),
             Expanded(
               child: Text(
-                _selectedTask?.title ?? "Selecione a tarefa ativa",
+                _controller.selectedTask?.title ?? "Selecione a tarefa ativa",
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(color: Color(0xFF334155), fontWeight: FontWeight.w500),
               ),
@@ -276,7 +236,7 @@ class _FocusScreenState extends State<FocusScreen> {
   }
 
   Widget _buildActionButtons() {
-    final bool hasTask = _selectedTask != null;
+    final bool hasTask = _controller.selectedTask != null;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -297,9 +257,7 @@ class _FocusScreenState extends State<FocusScreen> {
               elevation: hasTask ? 2 : 0,
             ),
             child: Text(
-              !hasTask
-                  ? "SELECIONE UMA TAREFA"
-                  : (_controller.isRunning ? "PAUSAR" : "INICIAR SESSÃO"),
+              !hasTask ? "SELECIONE UMA TAREFA" : (_controller.isRunning ? "PAUSAR" : "INICIAR SESSÃO"),
               style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600),
             ),
           ),
@@ -316,14 +274,7 @@ class _FocusScreenState extends State<FocusScreen> {
               Expanded(
                 child: _buildSecondaryBtn(
                   "Finalizar",
-                  onTap: hasTask
-                      ? () {
-                    if (_controller.isRunning || _controller.value > 0) {
-                      _controller.stopTimer();
-                      _handleTimerEvents();
-                    }
-                  }
-                      : null,
+                  onTap: hasTask ? _showFinishConfirmation : null,
                 ),
               ),
             ],
@@ -358,7 +309,10 @@ class _FocusScreenState extends State<FocusScreen> {
         child: Center(
           child: Text(
             label,
-            style: const TextStyle(color: Color(0xFF334155), fontWeight: FontWeight.w500),
+            style: TextStyle(
+              color: onTap == null ? Colors.grey : const Color(0xFF334155),
+              fontWeight: FontWeight.w500,
+            ),
           ),
         ),
       ),

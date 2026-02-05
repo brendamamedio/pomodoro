@@ -1,20 +1,20 @@
 import 'package:flutter/material.dart';
 import '../../core/theme/app_colors.dart';
-import '../../routes/app_routes.dart';
-import '../widgets/custom_bottom_nav.dart';
-import 'widgets/task_item_card.dart';
-import 'widgets/empty_tasks_view.dart';
 import '../../services/auth_service.dart';
 import '../../data/models/task_model.dart';
+import '../widgets/custom_bottom_nav.dart';
+import 'widgets/task_item_card.dart';
+import 'add_task_screen.dart';
 
-class TasksManagementScreen extends StatelessWidget {
+class TasksManagementScreen extends StatefulWidget {
   const TasksManagementScreen({super.key});
 
-  AuthService get _authService => AuthService();
+  @override
+  State<TasksManagementScreen> createState() => _TasksManagementScreenState();
+}
 
-  void _navigateToAddTask(BuildContext context) {
-    Navigator.pushNamed(context, AppRoutes.addTask);
-  }
+class _TasksManagementScreenState extends State<TasksManagementScreen> {
+  final AuthService _authService = AuthService();
 
   @override
   Widget build(BuildContext context) {
@@ -26,7 +26,7 @@ class TasksManagementScreen extends StatelessWidget {
         child: SafeArea(
           child: Column(
             children: [
-              _buildHeader(context),
+              _buildHeader(),
               Expanded(
                 child: StreamBuilder<List<TaskModel>>(
                   stream: _authService.getTasks(),
@@ -37,30 +37,41 @@ class TasksManagementScreen extends StatelessWidget {
                       );
                     }
 
-                    if (snapshot.hasError) {
-                      return Center(child: Text('Erro ao carregar: ${snapshot.error}'));
+                    if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                      return _buildEmptyState();
                     }
 
-                    final tasks = snapshot.data ?? [];
-
-                    if (tasks.isEmpty) {
-                      return EmptyTasksView(onAddTask: () => _navigateToAddTask(context));
-                    }
+                    final tasks = snapshot.data!;
 
                     return ListView.builder(
-
-                      padding: const EdgeInsets.fromLTRB(24, 0, 24, 100),
+                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
                       itemCount: tasks.length,
                       itemBuilder: (context, index) {
                         final task = tasks[index];
                         return Padding(
                           padding: const EdgeInsets.only(bottom: 12),
-                          child: TaskItemCard(
-                            title: task.title,
-
-                            totalPomodoros: task.totalPomodoros,
-                            completedPomodoros: task.completedPomodoros,
-                            isCompleted: task.isCompleted,
+                          child: GestureDetector(
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => AddTaskScreen(
+                                    taskId: task.id,
+                                    initialTitle: task.title,
+                                    initialPomodoros: task.totalPomodoros,
+                                  ),
+                                ),
+                              );
+                            },
+                            child: TaskItemCard(
+                              title: task.title,
+                              totalPomodoros: task.totalPomodoros,
+                              completedPomodoros: task.completedPomodoros,
+                              isCompleted: task.isCompleted,
+                              onToggle: () {
+                                _authService.toggleTaskCompletion(task.id, task.isCompleted);
+                              },
+                            ),
                           ),
                         );
                       },
@@ -72,66 +83,50 @@ class TasksManagementScreen extends StatelessWidget {
           ),
         ),
       ),
-      floatingActionButton: _buildFAB(context),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const AddTaskScreen()),
+          );
+        },
+        backgroundColor: AppColors.textDark,
+        child: const Icon(Icons.add, color: Colors.white),
+      ),
       bottomNavigationBar: const CustomBottomNav(currentIndex: 1),
     );
   }
 
-  Widget _buildHeader(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(32, 32, 32, 16),
-      child: Row(
+  Widget _buildHeader() {
+    return const Padding(
+      padding: EdgeInsets.symmetric(vertical: 24),
+      child: Text(
+        'Minhas Tarefas',
+        style: TextStyle(
+          fontSize: 24,
+          fontWeight: FontWeight.w600,
+          color: AppColors.textDark,
+          fontFamily: 'Poppins',
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
+          Icon(Icons.assignment_outlined, size: 64, color: AppColors.textGrey.withValues(alpha: 0.5)),
+          const SizedBox(height: 16),
           const Text(
-            'Minhas Tarefas',
+            'Nenhuma tarefa por aqui',
             style: TextStyle(
-              color: AppColors.textDark,
-              fontSize: 24,
+              color: AppColors.textGrey,
               fontFamily: 'Poppins',
-              fontWeight: FontWeight.w400,
             ),
           ),
-          const Spacer(),
-          _buildCircleBtn(Icons.more_horiz),
         ],
-      ),
-    );
-  }
-
-  Widget _buildCircleBtn(IconData icon) {
-    return Container(
-      width: 40,
-      height: 40,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-
-        color: Colors.white.withValues(alpha: 0.6),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.4)),
-      ),
-      child: Icon(icon, size: 18, color: AppColors.textDark),
-    );
-  }
-
-  Widget _buildFAB(BuildContext context) {
-    return FloatingActionButton(
-      onPressed: () => _navigateToAddTask(context),
-      backgroundColor: Colors.transparent,
-      elevation: 0,
-      child: Container(
-        width: 64,
-        height: 64,
-        decoration: BoxDecoration(
-          gradient: AppColors.fabGradient,
-          shape: BoxShape.circle,
-          boxShadow: [
-            BoxShadow(
-              color: AppColors.primaryPink.withValues(alpha: 0.4),
-              blurRadius: 24,
-              offset: const Offset(0, 8),
-            )
-          ],
-        ),
-        child: const Icon(Icons.add, color: Colors.white, size: 32),
       ),
     );
   }

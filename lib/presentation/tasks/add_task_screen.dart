@@ -43,11 +43,31 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
 
     setState(() => _isLoading = true);
     try {
-      await _authService.addTask(title, _pomodoroCount);
+      if (widget.taskId == null) {
+        await _authService.addTask(title, _pomodoroCount);
+      } else {
+        await _authService.updateTask(widget.taskId!, title, _pomodoroCount);
+      }
       if (mounted) Navigator.pop(context);
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Erro ao salvar: $e'))
+      );
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _deleteTask() async {
+    if (widget.taskId == null) return;
+
+    setState(() => _isLoading = true);
+    try {
+      await _authService.deleteTask(widget.taskId!);
+      if (mounted) Navigator.pop(context);
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erro ao excluir: $e'))
       );
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -147,24 +167,25 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
             borderRadius: BorderRadius.circular(16),
           ),
         ),
-        child: const Text(
-          'Salvar Alterações',
-          style: TextStyle(color: Colors.white, fontSize: 16),
+        child: Text(
+          widget.taskId == null ? 'Criar Tarefa' : 'Salvar Alterações',
+          style: const TextStyle(color: Colors.white, fontSize: 16),
         ),
       ),
     );
   }
 
   Widget _buildDeleteButton() {
-    return Center(
-      child: TextButton.icon(
-        onPressed: () {
-          /* Lógica de deletar */
-        },
-        icon: const Icon(Icons.delete_outline, color: AppColors.textGrey),
-        label: const Text(
-          'Excluir Tarefa',
-          style: TextStyle(color: AppColors.textGrey),
+    return Padding(
+      padding: const EdgeInsets.only(top: 16),
+      child: Center(
+        child: TextButton.icon(
+          onPressed: _isLoading ? null : _deleteTask,
+          icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
+          label: const Text(
+            'Excluir Tarefa',
+            style: TextStyle(color: Colors.redAccent),
+          ),
         ),
       ),
     );

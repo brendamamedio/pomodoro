@@ -57,7 +57,7 @@ class _TaskSelectionSheetState extends State<TaskSelectionSheet> {
               maxHeight: MediaQuery.of(context).size.height * 0.4,
             ),
             child: StreamBuilder<List<TaskModel>>(
-              stream: _authService.getTasks(),
+              stream: _authService.getActiveTasks(),
               builder: (context, snapshot) {
                 if (snapshot.hasError) {
                   return const Center(child: Text("Erro ao carregar tarefas"));
