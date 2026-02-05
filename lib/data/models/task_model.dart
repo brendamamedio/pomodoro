@@ -3,7 +3,7 @@ class TaskModel {
   final String title;
   final bool isCompleted;
   final int totalPomodoros;
-  final int completedPomodoros;
+  int completedPomodoros;
   final String userId;
 
   TaskModel({

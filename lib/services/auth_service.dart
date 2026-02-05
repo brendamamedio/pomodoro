@@ -28,7 +28,6 @@ class AuthService {
       }
       return result.user;
     } catch (e) {
-      debugPrint(e.toString());
       return null;
     }
   }
@@ -41,7 +40,6 @@ class AuthService {
       );
       return result.user;
     } catch (e) {
-      debugPrint(e.toString());
       return null;
     }
   }
@@ -121,7 +119,6 @@ class AuthService {
         'totalPomodoros': pomodoros,
       });
     } catch (e) {
-      debugPrint(e.toString());
       rethrow;
     }
   }
@@ -132,7 +129,7 @@ class AuthService {
         'isCompleted': !currentStatus,
       });
     } catch (e) {
-      debugPrint(e.toString());
+      rethrow;
     }
   }
 
@@ -140,12 +137,11 @@ class AuthService {
     try {
       await _firestore.collection('tasks').doc(taskId).delete();
     } catch (e) {
-      debugPrint(e.toString());
       rethrow;
     }
   }
 
-  Future<int> getTodayCompletedPomodoros() async {
+  Future<int> getTodayFocusCount() async {
     final user = _auth.currentUser;
     if (user == null) return 0;
 
@@ -189,15 +185,20 @@ class AuthService {
 
       if (type == 'focus') {
         DocumentReference taskRef = _firestore.collection('tasks').doc(taskId);
-        final taskDoc = await taskRef.get();
-        final data = taskDoc.data() as Map<String, dynamic>;
-        int current = (data['completedPomodoros'] ?? 0) + 1;
-        int total = data['totalPomodoros'] ?? 0;
 
         batch.update(taskRef, {
           'completedPomodoros': FieldValue.increment(1),
-          'isCompleted': current >= total,
         });
+
+        final taskSnapshot = await taskRef.get();
+        if (taskSnapshot.exists) {
+          final data = taskSnapshot.data() as Map<String, dynamic>;
+          int current = (data['completedPomodoros'] ?? 0) + 1;
+          int total = data['totalPomodoros'] ?? 0;
+          if (current >= total) {
+            batch.update(taskRef, {'isCompleted': true});
+          }
+        }
       }
 
       await batch.commit();

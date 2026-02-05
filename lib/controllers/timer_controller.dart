@@ -1,6 +1,9 @@
 import 'dart:async';
+import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../data/models/task_model.dart';
+import '../../services/auth_service.dart';
 
 enum TimerMode { focus, shortBreak, longBreak }
 
@@ -11,6 +14,7 @@ class TimerController extends ChangeNotifier {
 
   Timer? _timer;
   TimerMode currentMode = TimerMode.focus;
+  final AudioPlayer _audioPlayer = AudioPlayer();
 
   int _value = 1500;
   int _focusSeconds = 1500;
@@ -38,6 +42,10 @@ class TimerController extends ChangeNotifier {
 
   set selectedTask(TaskModel? task) {
     _selectedTask = task;
+    if (task != null) {
+      stopTimer();
+      _resetToMode(TimerMode.focus);
+    }
     notifyListeners();
   }
 
@@ -52,6 +60,15 @@ class TimerController extends ChangeNotifier {
     int minutes = _value ~/ 60;
     int seconds = _value % 60;
     return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
+  }
+
+  void _playSound(String fileName) async {
+    try {
+      await _audioPlayer.play(AssetSource('sounds/$fileName'));
+      HapticFeedback.vibrate();
+    } catch (e) {
+      debugPrint(e.toString());
+    }
   }
 
   void updateSettings({
@@ -114,26 +131,76 @@ class TimerController extends ChangeNotifier {
 
   void _handleTimerFinished() {
     stopTimer();
+    final AuthService authService = AuthService();
+
     if (currentMode == TimerMode.focus) {
       _completedPomodoros++;
+
+      if (_selectedTask != null) {
+        authService.completePomodoroSession(
+          taskId: _selectedTask!.id,
+          taskTitle: _selectedTask!.title,
+          durationMinutes: _focusSeconds ~/ 60,
+          type: 'focus',
+        );
+
+        _selectedTask!.completedPomodoros++;
+
+        if (_selectedTask!.completedPomodoros >= _selectedTask!.totalPomodoros) {
+          _playSound('success.mp3');
+          _selectedTask = null;
+        } else {
+          _playSound('bell.mp3');
+        }
+      } else {
+        _playSound('bell.mp3');
+      }
+
       if (_completedPomodoros % _longBreakInterval == 0) {
         _resetToMode(TimerMode.longBreak);
       } else {
         _resetToMode(TimerMode.shortBreak);
       }
     } else {
+      _playSound('bell.mp3');
       _resetToMode(TimerMode.focus);
     }
+    notifyListeners();
+  }
+
+  void clearSelectedTask() {
+    _selectedTask = null;
     notifyListeners();
   }
 
   @override
   void dispose() {
     _timer?.cancel();
+    _audioPlayer.dispose();
     super.dispose();
   }
 
-  void clearSelectedTask() {
+  Future<void> finishSession(AuthService authService) async {
+    if (_selectedTask == null) return;
+
+    stopTimer();
+
+    int duration = currentMode == TimerMode.focus
+        ? (_focusSeconds - _value) ~/ 60
+        : (_shortBreakSeconds - _value) ~/ 60;
+
+    if (duration < 1) duration = 1;
+
+    await authService.completePomodoroSession(
+      taskId: _selectedTask!.id,
+      taskTitle: _selectedTask!.title,
+      durationMinutes: duration,
+      type: currentMode == TimerMode.focus ? 'focus' : 'break',
+    );
+
+    await authService.toggleTaskCompletion(_selectedTask!.id, false);
+
+    _resetToMode(TimerMode.focus);
     _selectedTask = null;
     notifyListeners();
   }

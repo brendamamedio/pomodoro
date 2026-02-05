@@ -24,7 +24,6 @@ class _FocusScreenState extends State<FocusScreen> {
   @override
   void initState() {
     super.initState();
-    _controller.addListener(_handleTimerEvents);
     _loadInitialData();
   }
 
@@ -32,7 +31,7 @@ class _FocusScreenState extends State<FocusScreen> {
     if (_userId.isEmpty) return;
 
     if (_controller.completedPomodoros == 0) {
-      final count = await _authService.getTodayCompletedPomodoros();
+      final count = await _authService.getTodayFocusCount();
       _controller.completedPomodoros = count;
     }
 
@@ -55,75 +54,33 @@ class _FocusScreenState extends State<FocusScreen> {
     });
   }
 
-  void _handleTimerEvents() async {
-    if (_controller.value == 0 && _controller.selectedTask != null) {
-      final task = _controller.selectedTask!;
-
-
-      String currentType = _controller.currentMode == TimerMode.focus ? 'focus' : 'break';
-      int duration = _controller.currentMode == TimerMode.focus
-          ? _controller.focusSeconds ~/ 60
-          : _controller.shortBreakSeconds ~/ 60;
-
-
-      await _authService.completePomodoroSession(
-        taskId: task.id,
-        taskTitle: task.title,
-        durationMinutes: duration,
-        type: currentType,
-      );
-
-
-      if (currentType == 'focus') {
-        int nextCount = task.completedPomodoros + 1;
-
-        if (nextCount >= task.totalPomodoros) {
-
-          _showTaskFinishedDialog(task.title);
-
-          _controller.clearSelectedTask();
-        } else {
-          _showFinishDialog(currentType);
-        }
-      } else {
-        _showFinishDialog(currentType);
-      }
-    }
-  }
-
-
-  void _showTaskFinishedDialog(String title) {
+  void _showFinishConfirmation() {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text("Tarefa Concluída! 🏆"),
-        content: Text("Parabéns! Você completou todos os pomodoros da tarefa: $title"),
+        title: const Text("Finalizar Sessão?"),
+        content: const Text("Deseja encerrar este ciclo agora? O progresso será registrado no seu histórico e a tarefa será marcada como concluída."),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text("ÓTIMO"),
+            child: const Text("CANCELAR", style: TextStyle(color: AppColors.textGrey)),
           ),
-        ],
-      ),
-    );
-  }
-
-  void _showFinishDialog(String type) {
-    String message = type == 'focus'
-        ? "Foco concluído! Hora de descansar."
-        : "Descanso finalizado! Pronto para focar?";
-
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text("Ciclo Finalizado"),
-        content: Text(message),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text("OK"),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF0F172A),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+            onPressed: () async {
+              Navigator.pop(context);
+              await _controller.finishSession(_authService);
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Sessão finalizada com sucesso!')),
+                );
+              }
+            },
+            child: const Text("FINALIZAR", style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -139,16 +96,8 @@ class _FocusScreenState extends State<FocusScreen> {
     );
 
     if (result != null) {
-      setState(() {
-        _controller.selectedTask = result;
-      });
+      _controller.selectedTask = result;
     }
-  }
-
-  @override
-  void dispose() {
-    _controller.removeListener(_handleTimerEvents);
-    super.dispose();
   }
 
   @override
@@ -217,11 +166,7 @@ class _FocusScreenState extends State<FocusScreen> {
                   SizedBox(
                     width: 280,
                     height: 280,
-                    child: CustomPaint(
-                      painter: TimerPainter(
-                        progress: _controller.progress,
-                      ),
-                    ),
+                    child: CustomPaint(painter: TimerPainter(progress: _controller.progress)),
                   ),
                   Column(
                     mainAxisSize: MainAxisSize.min,
@@ -254,36 +199,9 @@ class _FocusScreenState extends State<FocusScreen> {
         const SizedBox(height: 48),
         Text(
           isFocus ? "Hora de Focar" : "Hora de Relaxar",
-          style: const TextStyle(
-            fontSize: 30,
-            color: AppColors.textDark,
-            fontFamily: 'Poppins',
-          ),
+          style: const TextStyle(fontSize: 30, color: AppColors.textDark, fontFamily: 'Poppins'),
         ),
-        const SizedBox(height: 12),
-        _buildDotIndicator(),
       ],
-    );
-  }
-
-  Widget _buildDotIndicator() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: List.generate(
-        _controller.longBreakInterval,
-            (index) {
-          bool isCompleted = index < _controller.completedPomodoros % _controller.longBreakInterval;
-          return Container(
-            margin: const EdgeInsets.symmetric(horizontal: 4),
-            width: 10,
-            height: 10,
-            decoration: BoxDecoration(
-              color: isCompleted ? AppColors.primaryPink : const Color(0xFFE2E8F0),
-              shape: BoxShape.circle,
-            ),
-          );
-        },
-      ),
     );
   }
 
@@ -339,9 +257,7 @@ class _FocusScreenState extends State<FocusScreen> {
               elevation: hasTask ? 2 : 0,
             ),
             child: Text(
-              !hasTask
-                  ? "SELECIONE UMA TAREFA"
-                  : (_controller.isRunning ? "PAUSAR" : "INICIAR SESSÃO"),
+              !hasTask ? "SELECIONE UMA TAREFA" : (_controller.isRunning ? "PAUSAR" : "INICIAR SESSÃO"),
               style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600),
             ),
           ),
@@ -358,14 +274,7 @@ class _FocusScreenState extends State<FocusScreen> {
               Expanded(
                 child: _buildSecondaryBtn(
                   "Finalizar",
-                  onTap: hasTask
-                      ? () {
-                    if (_controller.isRunning || _controller.value > 0) {
-                      _controller.stopTimer();
-                      _handleTimerEvents();
-                    }
-                  }
-                      : null,
+                  onTap: hasTask ? _showFinishConfirmation : null,
                 ),
               ),
             ],
@@ -400,7 +309,10 @@ class _FocusScreenState extends State<FocusScreen> {
         child: Center(
           child: Text(
             label,
-            style: const TextStyle(color: Color(0xFF334155), fontWeight: FontWeight.w500),
+            style: TextStyle(
+              color: onTap == null ? Colors.grey : const Color(0xFF334155),
+              fontWeight: FontWeight.w500,
+            ),
           ),
         ),
       ),

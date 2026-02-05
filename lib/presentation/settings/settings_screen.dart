@@ -47,11 +47,7 @@ class SettingsScreen extends StatelessWidget {
                     _buildTimerSettings(authService, userId, focusTime, shortBreak, longBreak, longBreakInterval),
                     const SizedBox(height: 32),
                     _buildLongBreakFrequency(context, authService, userId, focusTime, shortBreak, longBreak, longBreakInterval),
-                    const SizedBox(height: 32),
-                    _buildSectionTitle('NOTIFICAÇÕES'),
-                    const SizedBox(height: 16),
-                    _buildNotificationSettings(),
-                    const SizedBox(height: 40),
+                    const SizedBox(height: 48),
                     Center(
                       child: TextButton.icon(
                         onPressed: () async {
@@ -198,19 +194,6 @@ class SettingsScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildNotificationSettings() {
-    return Container(
-      decoration: _cardDecoration(),
-      child: Column(
-        children: [
-          _buildSwitchTile('Sons', Icons.volume_up_rounded, true),
-          const Divider(height: 1, color: Color(0xFFF1F5F9)),
-          _buildSwitchTile('Vibração', Icons.vibration_rounded, true),
-        ],
-      ),
-    );
-  }
-
   Widget _buildSettingTile(String label, String value, Color color, IconData icon, {VoidCallback? onAdd, VoidCallback? onRemove}) {
     return Container(
       padding: const EdgeInsets.all(16),
@@ -251,29 +234,6 @@ class SettingsScreen extends StatelessWidget {
           child: _buildRoundActionBtn('+', color, color.withValues(alpha:0.2)),
         ),
       ],
-    );
-  }
-
-  Widget _buildSwitchTile(String label, IconData icon, bool value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Row(
-            children: [
-              Icon(icon, color: AppColors.textGrey, size: 24),
-              const SizedBox(width: 12),
-              Text(label, style: const TextStyle(color: Color(0xFF334155), fontSize: 16, fontFamily: 'Poppins', fontWeight: FontWeight.w500)),
-            ],
-          ),
-          Switch(
-              value: value,
-              activeThumbColor: AppColors.primaryPink,
-              onChanged: (v) {}
-          ),
-        ],
-      ),
     );
   }
 

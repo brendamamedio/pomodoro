@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import '../../core/theme/app_colors.dart';
 import '../widgets/custom_bottom_nav.dart';
 import '../../services/auth_service.dart';
@@ -17,6 +15,7 @@ class _StatsScreenState extends State<StatsScreen> {
   Map<String, double> _weeklyStats = {};
   int _currentStreak = 0;
   List<double> _contributionData = [];
+  int _todayFocusCount = 0;
   bool _isLoading = true;
 
   @override
@@ -26,15 +25,20 @@ class _StatsScreenState extends State<StatsScreen> {
   }
 
   Future<void> _loadAllData() async {
-    final stats = await _authService.getWeeklyFocusStats();
-    final streak = await _authService.getCurrentStreak();
-    final contributions = await _authService.getContributionData();
+
+    final results = await Future.wait([
+      _authService.getWeeklyFocusStats(),
+      _authService.getCurrentStreak(),
+      _authService.getContributionData(),
+      _authService.getTodayFocusCount(),
+    ]);
 
     if (mounted) {
       setState(() {
-        _weeklyStats = stats;
-        _currentStreak = streak;
-        _contributionData = contributions;
+        _weeklyStats = results[0] as Map<String, double>;
+        _currentStreak = results[1] as int;
+        _contributionData = results[2] as List<double>;
+        _todayFocusCount = results[3] as int;
         _isLoading = false;
       });
     }
@@ -50,26 +54,31 @@ class _StatsScreenState extends State<StatsScreen> {
         child: SafeArea(
           child: _isLoading
               ? const Center(child: CircularProgressIndicator(color: AppColors.primaryPink))
-              : SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildHeader(),
-                const SizedBox(height: 32),
-                _buildSectionTitle('RESUMO DIÁRIO'),
-                const SizedBox(height: 16),
-                _buildDailySummary(),
-                const SizedBox(height: 32),
-                _buildSectionTitle('PRODUTIVIDADE SEMANAL'),
-                const SizedBox(height: 16),
-                _buildWeeklyChart(),
-                const SizedBox(height: 32),
-                _buildSectionTitle('SUA SEQUÊNCIA'),
-                const SizedBox(height: 16),
-                _buildStreakCard(),
-                const SizedBox(height: 40),
-              ],
+              : RefreshIndicator(
+            onRefresh: _loadAllData,
+            color: AppColors.primaryPink,
+            child: SingleChildScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildHeader(),
+                  const SizedBox(height: 32),
+                  _buildSectionTitle('RESUMO DIÁRIO'),
+                  const SizedBox(height: 16),
+                  _buildDailySummary(),
+                  const SizedBox(height: 32),
+                  _buildSectionTitle('PRODUTIVIDADE SEMANAL'),
+                  const SizedBox(height: 16),
+                  _buildWeeklyChart(),
+                  const SizedBox(height: 32),
+                  _buildSectionTitle('SUA SEQUÊNCIA'),
+                  const SizedBox(height: 16),
+                  _buildStreakCard(),
+                  const SizedBox(height: 40),
+                ],
+              ),
             ),
           ),
         ),
@@ -78,31 +87,24 @@ class _StatsScreenState extends State<StatsScreen> {
     );
   }
 
-  Widget _buildHeader() {
-    return const Padding(
-      padding: EdgeInsets.only(top: 16, bottom: 8),
-      child: Center(
-        child: Text(
-          'Estatísticas',
-          style: TextStyle(
-            color: AppColors.textDark,
-            fontSize: 24,
-            fontFamily: 'Poppins',
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-      ),
-    );
-  }
-
   Widget _buildDailySummary() {
-    double totalMinutes = _weeklyStats.values.fold(0, (sum, item) => sum + item);
+    final String todayKey = _getDayName(DateTime.now().weekday);
+    final double todayMinutes = _weeklyStats[todayKey] ?? 0.0;
+
+
+    String timeDisplay;
+    if (todayMinutes < 60) {
+      timeDisplay = '${todayMinutes.round()} min';
+    } else {
+      timeDisplay = '${(todayMinutes / 60).toStringAsFixed(1)}h';
+    }
+
     return Row(
       children: [
         Expanded(
           child: _buildSummaryCard(
-            '${(totalMinutes / 60).toStringAsFixed(1)}h',
-            'Tempo Total',
+            timeDisplay,
+            'Tempo Hoje',
             Icons.access_time_filled,
             AppColors.primaryPink,
           ),
@@ -110,8 +112,8 @@ class _StatsScreenState extends State<StatsScreen> {
         const SizedBox(width: 16),
         Expanded(
           child: _buildSummaryCard(
-            (totalMinutes / 25).round().toString(),
-            'Pomodoros',
+            _todayFocusCount.toString(),
+            'Ciclos Foco',
             Icons.timer,
             const Color(0xFFB794F4),
           ),
@@ -136,11 +138,11 @@ class _StatsScreenState extends State<StatsScreen> {
             }).toList(),
           ),
           const Divider(height: 32, color: Color(0xFFF1F5F9)),
-          Row(
+          const Row(
             children: [
-              const CircleAvatar(radius: 4, backgroundColor: AppColors.primaryPink),
-              const SizedBox(width: 8),
-              const Text('Hoje', style: TextStyle(color: AppColors.textGrey, fontSize: 12)),
+              CircleAvatar(radius: 4, backgroundColor: AppColors.primaryPink),
+              SizedBox(width: 8),
+              Text('Progresso em minutos', style: TextStyle(color: AppColors.textGrey, fontSize: 12)),
             ],
           )
         ],
@@ -213,6 +215,23 @@ class _StatsScreenState extends State<StatsScreen> {
     );
   }
 
+  Widget _buildHeader() {
+    return const Padding(
+      padding: EdgeInsets.only(top: 16, bottom: 8),
+      child: Center(
+        child: Text(
+          'Estatísticas',
+          style: TextStyle(
+            color: AppColors.textDark,
+            fontSize: 24,
+            fontFamily: 'Poppins',
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildContributionGrid(List<double> contributions) {
     return Wrap(
       spacing: 4,
@@ -252,10 +271,7 @@ class _StatsScreenState extends State<StatsScreen> {
     return Container(
       width: 44,
       height: 44,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: color.withValues(alpha: 0.1),
-      ),
+      decoration: BoxDecoration(shape: BoxShape.circle, color: color.withValues(alpha: 0.1)),
       child: Icon(icon, color: color, size: 22),
     );
   }
@@ -266,8 +282,7 @@ class _StatsScreenState extends State<StatsScreen> {
       children: [
         const Text('Menos ', style: TextStyle(color: AppColors.textGrey, fontSize: 10)),
         ...List.generate(3, (i) => Container(
-          width: 8,
-          height: 8,
+          width: 8, height: 8,
           margin: const EdgeInsets.symmetric(horizontal: 2),
           decoration: BoxDecoration(
             color: AppColors.primaryPink.withValues(alpha: 0.3 * (i + 1)),
@@ -299,8 +314,12 @@ class _StatsScreenState extends State<StatsScreen> {
     );
   }
 
-  bool _isToday(String dayName) {
+  String _getDayName(int weekday) {
     final daysMap = {1: 'Seg', 2: 'Ter', 3: 'Qua', 4: 'Qui', 5: 'Sex', 6: 'Sáb', 7: 'Dom'};
-    return daysMap[DateTime.now().weekday] == dayName;
+    return daysMap[weekday] ?? '';
+  }
+
+  bool _isToday(String dayName) {
+    return _getDayName(DateTime.now().weekday) == dayName;
   }
 }
