@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../core/theme/app_colors.dart';
 import '../../routes/app_routes.dart';
+import '../../services/auth_service.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -10,9 +11,11 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
+  final AuthService _authService = AuthService();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _isPasswordVisible = false;
+  bool _isLoading = false;
 
   @override
   Widget build(BuildContext context) {
@@ -38,16 +41,13 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                 ),
                 const SizedBox(height: 40),
-
-                _buildLabel('Endereço de email'),
+                _buildLabel('E-mail'),
                 _buildTextField(
                   controller: _emailController,
-                  hint: 'helloworld@gmail.com',
+                  hint: 'E-mail',
                   icon: Icons.check_circle,
                 ),
-
                 const SizedBox(height: 24),
-
                 _buildLabel('Senha'),
                 _buildTextField(
                   controller: _passwordController,
@@ -62,11 +62,10 @@ class _LoginScreenState extends State<LoginScreen> {
                       color: AppColors.textGrey,
                     ),
                     onPressed: () => setState(
-                      () => _isPasswordVisible = !_isPasswordVisible,
+                          () => _isPasswordVisible = !_isPasswordVisible,
                     ),
                   ),
                 ),
-
                 const SizedBox(height: 16),
                 Align(
                   alignment: Alignment.centerRight,
@@ -81,11 +80,31 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
                 ),
-
                 const SizedBox(height: 32),
-
                 ElevatedButton(
-                  onPressed: () {},
+                  onPressed: _isLoading ? null : () async {
+                    setState(() => _isLoading = true);
+
+                    final user = await _authService.signIn(
+                      _emailController.text.trim(),
+                      _passwordController.text.trim(),
+                    );
+
+                    if (mounted) {
+                      setState(() => _isLoading = false);
+
+                      if (user != null) {
+                        Navigator.pushReplacementNamed(context, AppRoutes.focus);
+                      } else {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('E-mail ou senha incorretos.'),
+                            backgroundColor: Colors.redAccent,
+                          ),
+                        );
+                      }
+                    }
+                  },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF0F172A),
                     minimumSize: const Size(double.infinity, 64),
@@ -94,7 +113,16 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     elevation: 0,
                   ),
-                  child: const Text(
+                  child: _isLoading
+                      ? const SizedBox(
+                    height: 24,
+                    width: 24,
+                    child: CircularProgressIndicator(
+                      color: Colors.white,
+                      strokeWidth: 2,
+                    ),
+                  )
+                      : const Text(
                     'Conecte-se',
                     style: TextStyle(
                       color: Colors.white,
@@ -103,9 +131,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
                 ),
-
                 const SizedBox(height: 40),
-                _buildSocialDivider(),
                 const SizedBox(height: 24),
                 const SizedBox(height: 60),
                 _buildSignUpText(),
@@ -156,26 +182,10 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
           border: InputBorder.none,
           suffixIcon:
-              suffixIcon ??
+          suffixIcon ??
               (icon != null ? Icon(icon, color: AppColors.textDark) : null),
         ),
       ),
-    );
-  }
-
-  Widget _buildSocialDivider() {
-    return Row(
-      children: [
-        Expanded(child: Divider(color: Colors.grey[300])),
-        const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 16),
-          child: Text(
-            'Ou faça login com',
-            style: TextStyle(color: AppColors.textGrey, fontSize: 14),
-          ),
-        ),
-        Expanded(child: Divider(color: Colors.grey[300])),
-      ],
     );
   }
 
